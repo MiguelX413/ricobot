@@ -45,7 +45,8 @@ int bot_chat_percent = 10;
 
 int number_names = 0;
 
-char bot_names[MAX_BOT_NAMES][BOT_NAME_LEN + 1];
+static std::array<std::array<char, BOT_NAME_LEN + 1>, MAX_BOT_NAMES>
+    bot_names{};
 
 void BotSpawnInit(bot_t *pBot)
 {
@@ -99,7 +100,7 @@ void BotNameInit()
 
          if (name_buffer[0] != 0)
          {
-            strncpy(bot_names[number_names], name_buffer, BOT_NAME_LEN);
+            strncpy(bot_names[number_names].data(), name_buffer, BOT_NAME_LEN);
             number_names++;
          }
       }
@@ -118,7 +119,7 @@ void BotPickName(char *name_buffer)
    {
       if (bots[index].is_used == FALSE && bots[index].name[0])
       {
-         strcpy(name_buffer, bots[index].name);
+         strcpy(name_buffer, bots[index].name.data());
 
          return;
       }
@@ -139,7 +140,8 @@ void BotPickName(char *name_buffer)
 
          if (pPlayer && !pPlayer->free)
          {
-            if (strcmp(bot_names[name_index], STRING(pPlayer->v.netname)) == 0)
+            if (strcmp(bot_names[name_index].data(),
+                       STRING(pPlayer->v.netname)) == 0)
             {
                used = TRUE;
                break;
@@ -161,24 +163,23 @@ void BotPickName(char *name_buffer)
       }
    }
 
-   strcpy(name_buffer, bot_names[name_index]);
+   strcpy(name_buffer, bot_names[name_index].data());
 }
 
 void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill)
 {
-   char c_name[BOT_NAME_LEN + 1];
+   std::array<char, BOT_NAME_LEN + 1> c_name{};
 
    if (pname != nullptr && *pname != 0)
    {
-      strncpy(c_name, pname, BOT_NAME_LEN - 1);
-      c_name[BOT_NAME_LEN] = 0; // make sure c_name is null terminated
+      strncpy(c_name.data(), pname, BOT_NAME_LEN - 1);
    }
    else
    {
       if (number_names > 0)
-         BotPickName(c_name);
+         BotPickName(c_name.data());
       else
-         strcpy(c_name, "Bot");
+         strcpy(c_name.data(), "Bot");
    }
 
    int skill = 0;
@@ -189,7 +190,7 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill)
    if (skill < 1 || skill > 5)
       skill = default_bot_skill;
 
-   size_t length = strlen(c_name);
+   size_t length = strlen(c_name.data());
 
    // remove any illegal characters from name...
    for (size_t i = 0; i < length; i++)
@@ -202,7 +203,7 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill)
       }
    }
 
-   edict_t *BotEnt = (*g_engfuncs.pfnCreateFakeClient)(c_name);
+   edict_t *BotEnt = (*g_engfuncs.pfnCreateFakeClient)(c_name.data());
 
    if (FNullEnt(BotEnt))
    {
@@ -233,7 +234,7 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill)
       // (from LINK_ENTITY_TO_CLASS for player object)
       CALL_GAME_ENTITY(PLID, "player", VARS(BotEnt));
 
-      MDLL_ClientConnect(BotEnt, c_name, "127.0.0.1", ptr);
+      MDLL_ClientConnect(BotEnt, c_name.data(), "127.0.0.1", ptr);
       MDLL_ClientPutInServer(BotEnt);
 
       BotEnt->v.flags |= FL_FAKECLIENT;
@@ -242,7 +243,7 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill)
           &bots[index]; // initialize all the variables for this bot...
 
       pBot->is_used = TRUE;
-      pBot->respawn_state = RESPAWN_IDLE;
+      pBot->respawn_state = RespawnState::Idle;
       pBot->create_time = gpGlobals->time;
       pBot->name[0] = 0; // name not set by server yet
 
@@ -567,7 +568,8 @@ void BotThink(bot_t *pBot)
    pEdict->v.flags |= FL_FAKECLIENT;
 
    if (pBot->name[0] == 0) // name filled in yet?
-      strcpy(pBot->name, STRING(pBot->pEdict->v.netname));
+      snprintf(pBot->name.data(), pBot->name.size(), "%s",
+               STRING(pBot->pEdict->v.netname));
 
    // TheFatal - START from Advanced Bot Framework (Thanks Rich!)
    /*
