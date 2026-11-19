@@ -176,22 +176,29 @@ C_DLLEXPORT int Meta_Attach(PLUG_LOADTIME, META_FUNCTIONS *pFunctionTable,
 // Metamod detaching plugin from the server
 C_DLLEXPORT int Meta_Detach(PLUG_LOADTIME, PL_UNLOAD_REASON) { return TRUE; }
 
+static void AddBotFromCommand(edict_t *requester, const char *name,
+                              const char *skill, bool pause_config) {
+  BotCreate(requester, name, skill);
+  // Give the engine time to initialize the bot before processing more config.
+  if (pause_config)
+    bot_cfg_pause_time = gpGlobals->time + 2.0f;
+  bot_check_time = gpGlobals->time + 5.0f;
+}
+
+static int NormalizeBotLimit(int value) {
+  return value < 0 || value > 31 ? 1 : value;
+}
+
 void ServerCommand() {
   if (strcmp(CMD_ARGV(1), "addbot") == 0) {
-    BotCreate(nullptr, CMD_ARGV(2), CMD_ARGV(3));
-    bot_check_time = gpGlobals->time + 5.0f;
+    AddBotFromCommand(nullptr, CMD_ARGV(2), CMD_ARGV(3),
+                      /*pause_config=*/false);
   } else if (strcmp(CMD_ARGV(1), "min_bots") == 0) {
-    min_bots = atoi(CMD_ARGV(2));
-
-    if ((min_bots < 0) || (min_bots > 31))
-      min_bots = 1;
+    min_bots = NormalizeBotLimit(atoi(CMD_ARGV(2)));
 
     printf("min_bots set to %d\n", min_bots);
   } else if (strcmp(CMD_ARGV(1), "max_bots") == 0) {
-    max_bots = atoi(CMD_ARGV(2));
-
-    if ((max_bots < 0) || (max_bots > 31))
-      max_bots = 1;
+    max_bots = NormalizeBotLimit(atoi(CMD_ARGV(2)));
 
     printf("max_bots set to %d\n", max_bots);
   }
@@ -284,9 +291,7 @@ void ClientCommand(edict_t *pEntity) {
     char msg[80];
 
     if (FStrEq(pcmd, "addbot")) {
-      BotCreate(pEntity, arg1, arg2);
-
-      bot_check_time = gpGlobals->time + 5.0f;
+      AddBotFromCommand(pEntity, arg1, arg2, /*pause_config=*/false);
 
       RETURN_META(MRES_SUPERCEDE);
     } else if (FStrEq(pcmd, "observer")) {
@@ -670,14 +675,7 @@ void ProcessBotCfgFile() {
     return; // return if comment or blank line
 
   if (strcmp(cmd, "addbot") == 0) {
-    BotCreate(nullptr, arg1, arg2);
-
-    // have to delay here or engine gives "Tried to write to
-    // uninitialized sizebuf_t" error and crashes...
-
-    bot_cfg_pause_time = gpGlobals->time + 2.0f;
-    bot_check_time = gpGlobals->time + 5.0f;
-
+    AddBotFromCommand(nullptr, arg1, arg2, /*pause_config=*/true);
     return;
   }
 
@@ -704,7 +702,7 @@ void ProcessBotCfgFile() {
   if (strcmp(cmd, "min_bots") == 0) {
     if (!value)
       return;
-    min_bots = *value < 0 || *value > 31 ? 1 : *value;
+    min_bots = NormalizeBotLimit(*value);
     if (IS_DEDICATED_SERVER())
       printf("min_bots set to %d\n", min_bots);
     return;
@@ -713,7 +711,7 @@ void ProcessBotCfgFile() {
   if (strcmp(cmd, "max_bots") == 0) {
     if (!value)
       return;
-    max_bots = *value < 0 || *value > 31 ? 1 : *value;
+    max_bots = NormalizeBotLimit(*value);
     if (IS_DEDICATED_SERVER())
       printf("max_bots set to %d\n", max_bots);
     return;
