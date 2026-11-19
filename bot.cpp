@@ -41,6 +41,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string_view>
 
 #include "bot.hpp"
+#include "file_handle.hpp"
 
 bot_t bots[32]; // max of 32 bots in a game
 bool b_observer_mode = false;
@@ -73,12 +74,12 @@ void BotNameInit() {
   if (!UTIL_BuildFileName(bot_name_filename, "bot_names.txt", nullptr))
     return;
 
-  FILE *bot_name_fp = fopen(bot_name_filename, "r");
+  FileHandle bot_name_fp{fopen(bot_name_filename, "r")};
 
   if (bot_name_fp != nullptr) {
     char name_buffer[80];
     while (number_names < MAX_BOT_NAMES &&
-           fgets(name_buffer, 80, bot_name_fp) != nullptr) {
+           fgets(name_buffer, 80, bot_name_fp.get()) != nullptr) {
       size_t length = strlen(name_buffer);
 
       if (length > 0 && name_buffer[length - 1] == '\n') {
@@ -102,8 +103,6 @@ void BotNameInit() {
         number_names++;
       }
     }
-
-    fclose(bot_name_fp);
   }
 }
 

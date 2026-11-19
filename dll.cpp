@@ -45,6 +45,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <utility>
 
 #include "bot.hpp"
+#include "file_handle.hpp"
 
 char welcome_msg[] = "Welcome to Ricobot by Wei Mingzhi\n"
                      "Visit http://yapb.bots-united.com\n"
@@ -63,7 +64,7 @@ edict_t *listenserver_edict = nullptr;
 float welcome_time = 0.0;
 bool welcome_sent = false;
 
-FILE *bot_cfg_fp = nullptr;
+static FileHandle bot_cfg_fp;
 bool need_to_open_cfg = true;
 float bot_cfg_pause_time = 0.0f;
 float respawn_time = 0.0f;
@@ -98,12 +99,12 @@ void GameDLLInit() {
   if (!UTIL_BuildFileName(filename, "bot_whine.txt", nullptr))
     return;
 
-  FILE *bfp = fopen(filename, "r");
+  FileHandle bfp{fopen(filename, "r")};
 
   if (bfp != nullptr) {
     std::array<char, 80> buffer;
     while (whine_count < MAX_BOT_WHINE &&
-           fgets(buffer.data(), buffer.size(), bfp) != nullptr) {
+           fgets(buffer.data(), buffer.size(), bfp.get()) != nullptr) {
       std::string message = buffer.data();
       if (!message.empty() && message.back() == '\n')
         message.pop_back();
@@ -115,8 +116,6 @@ void GameDLLInit() {
       if (!message.empty())
         bot_whine[whine_count++] = std::move(message);
     }
-
-    fclose(bfp);
   }
 }
 
@@ -354,6 +353,15 @@ void ClientCommand(edict_t *pEntity) {
   RETURN_META(MRES_IGNORED);
 }
 
+static FileHandle OpenMapConfig() {
+  std::string map_config = STRING(gpGlobals->mapname);
+  map_config += "_bot.cfg";
+  char filename[256];
+  if (!UTIL_BuildFileName(filename, "maps", map_config.c_str()))
+    return {};
+  return FileHandle{fopen(filename, "r")};
+}
+
 void StartFrame() {
   if (gpGlobals->deathmatch) {
     static int i, index, bot_index;
@@ -363,16 +371,7 @@ void StartFrame() {
 
     // if a new map has started then (MUST BE FIRST IN StartFrame)...
     if (gpGlobals->time + 0.1f < previous_time) {
-      char filename[256];
-      char mapname[64];
-
-      // check if mapname_bot.cfg file exists...
-      strcpy(mapname, STRING(gpGlobals->mapname));
-      strcat(mapname, "_bot.cfg");
-
-      bot_cfg_fp = UTIL_BuildFileName(filename, "maps", mapname)
-                       ? fopen(filename, "r")
-                       : nullptr;
+      bot_cfg_fp = OpenMapConfig();
 
       if (bot_cfg_fp != nullptr) {
         for (index = 0; index < 32; index++) {
@@ -499,23 +498,13 @@ void StartFrame() {
     if (g_GameRules) {
       if (need_to_open_cfg) // have we open bot.cfg file yet?
       {
-        char filename[256];
-        char mapname[64];
-
         need_to_open_cfg = false; // only do this once!!!
 
-        // check if mapname_bot.cfg file exists...
-
-        strcpy(mapname, STRING(gpGlobals->mapname));
-        strcat(mapname, "_bot.cfg");
-
-        bot_cfg_fp = UTIL_BuildFileName(filename, "maps", mapname)
-                         ? fopen(filename, "r")
-                         : nullptr;
-
+        bot_cfg_fp = OpenMapConfig();
+        char filename[256];
         if (bot_cfg_fp == nullptr &&
             UTIL_BuildFileName(filename, "bot.cfg", nullptr)) {
-          bot_cfg_fp = fopen(filename, "r");
+          bot_cfg_fp.reset(fopen(filename, "r"));
         }
 
         if (IS_DEDICATED_SERVER())
@@ -611,11 +600,11 @@ void ProcessBotCfgFile() {
   if (bot_cfg_fp == nullptr)
     return;
 
-  int ch = fgetc(bot_cfg_fp);
+  int ch = fgetc(bot_cfg_fp.get());
 
   // skip any leading blanks
   while (ch == ' ')
-    ch = fgetc(bot_cfg_fp);
+    ch = fgetc(bot_cfg_fp.get());
 
   while (ch != EOF && ch != '\r' && ch != '\n') {
     if (ch == '\t') // convert tabs to spaces
@@ -626,24 +615,22 @@ void ProcessBotCfgFile() {
     else
       line_too_long = true;
 
-    ch = fgetc(bot_cfg_fp);
+    ch = fgetc(bot_cfg_fp.get());
 
     // skip multiple spaces in input file
     while (cmd_index != 0 && cmd_line[cmd_index - 1] == ' ' && ch == ' ' &&
            !line_too_long)
-      ch = fgetc(bot_cfg_fp);
+      ch = fgetc(bot_cfg_fp.get());
   }
 
   if (ch == '\r') // is it a carriage return?
   {
-    ch = fgetc(bot_cfg_fp); // skip the linefeed
+    ch = fgetc(bot_cfg_fp.get()); // skip the linefeed
   }
 
   // if reached end of file, then close it
   if (ch == EOF) {
-    fclose(bot_cfg_fp);
-
-    bot_cfg_fp = nullptr;
+    bot_cfg_fp.reset();
 
     bot_cfg_pause_time = 0.0f;
   }
