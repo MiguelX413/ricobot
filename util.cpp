@@ -119,9 +119,9 @@ void UTIL_SayText(const char *pText, edict_t *pEdict)
    MESSAGE_END();
 }
 
-void UTIL_HostSay(edict_t *pEntity, char *message)
+void UTIL_HostSay(edict_t *pEntity, const char *message)
 {
-   char text[128];
+   std::array<char, 128> text;
    if (message == nullptr)
       return;
 
@@ -137,11 +137,11 @@ void UTIL_HostSay(edict_t *pEntity, char *message)
       return;
 
    // Reserve room for the newline and terminator, even with a long name.
-   std::snprintf(text, sizeof(text) - 1, "%c%s: ", 2,
+   std::snprintf(text.data(), text.size() - 1, "%c%s: ", 2,
                  STRING(pEntity->v.netname));
-   const auto prefix_length = std::strlen(text);
-   const auto remaining = sizeof(text) - prefix_length;
-   std::snprintf(text + prefix_length, remaining, "%.*s\n",
+   const auto prefix_length = std::strlen(text.data());
+   const auto remaining = text.size() - prefix_length;
+   std::snprintf(text.data() + prefix_length, remaining, "%.*s\n",
                  static_cast<int>(remaining - 2), message);
 
    // loop through all players
@@ -162,14 +162,14 @@ void UTIL_HostSay(edict_t *pEntity, char *message)
 
       MESSAGE_BEGIN(MSG_ONE_UNRELIABLE, gmsgSayText, nullptr, client);
       WRITE_BYTE(ENTINDEX(pEntity));
-      WRITE_STRING(text);
+      WRITE_STRING(text.data());
       MESSAGE_END();
    }
 
    // print to the sending client
    MESSAGE_BEGIN(MSG_ONE_UNRELIABLE, gmsgSayText, nullptr, pEntity);
    WRITE_BYTE(ENTINDEX(pEntity));
-   WRITE_STRING(text);
+   WRITE_STRING(text.data());
    MESSAGE_END();
 }
 

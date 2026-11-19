@@ -59,7 +59,7 @@ edict_t *UTIL_FindEntityByClassname(edict_t *pentStart, const char *szName);
 edict_t *UTIL_FindEntityByTargetname(edict_t *pentStart, const char *szName);
 void ClientPrint(edict_t *pEntity, int msg_dest, const char *msg_name);
 void UTIL_SayText(const char *pText, edict_t *pEdict);
-void UTIL_HostSay(edict_t *pEntity, char *message);
+void UTIL_HostSay(edict_t *pEntity, const char *message);
 int UTIL_GetBotIndex(edict_t *pEdict);
 bot_t *UTIL_GetBotPointer(edict_t *pEdict);
 bool IsAlive(edict_t *pEdict);
