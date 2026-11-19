@@ -13,7 +13,7 @@ jobs:
       matrix:
         include:
           - platform: linux
-            runner: ubuntu-22.04
+            runner: ubuntu-26.04
             binary: dist/ricobot_mm.so
             symbols: dist/ricobot_mm.dbg
           - platform: win32
@@ -22,15 +22,35 @@ jobs:
             symbols: build/RelWithDebInfo/ricobot_mm.pdb
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           submodules: recursive
+
+      - name: Read Linux runner image version
+        if: runner.os == 'Linux'
+        id: linux-image
+        run: echo "version=$ImageVersion" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Linux toolchain packages
+        if: runner.os == 'Linux'
+        uses: actions/cache@v6.1.0
+        with:
+          path: ${{ runner.temp }}/ricobot-apt
+          key: apt-${{ matrix.runner }}-${{ runner.arch }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ steps.linux-image.outputs.version }}
+          restore-keys: |
+            apt-${{ matrix.runner }}-${{ runner.arch }}-${{ hashFiles('.github/workflows/build.yml') }}-
+
+      - name: Install Linux toolchain
+        if: runner.os == 'Linux'
+        run: |
+          apt_cache="$RUNNER_TEMP/ricobot-apt"
+          mkdir -p "$apt_cache/partial"
+          sudo apt-get update
+          sudo apt-get -o "Dir::Cache::archives=$apt_cache" install -y clang g++-multilib
 
       - name: Build (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang g++-multilib
           cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=RelWithDebInfo
           cmake --build build --parallel
 
@@ -46,18 +66,18 @@ jobs:
           cmake -S . -B build -A Win32
           cmake --build build --config RelWithDebInfo --parallel
 
-      - uses: benjlevesque/short-sha@v2.2
+      - uses: benjlevesque/short-sha@v5.0
         id: short-sha
 
       - name: Upload Binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: ricobot-${{ matrix.platform }}-${{ steps.short-sha.outputs.sha }}
           path: ${{ matrix.binary }}
           if-no-files-found: error
 
       - name: Upload Debug Symbols
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: ricobot-dbgsym-${{ matrix.platform }}-${{ steps.short-sha.outputs.sha }}
           path: ${{ matrix.symbols }}
