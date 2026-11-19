@@ -43,8 +43,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bot.hpp"
 
 bot_t bots[32]; // max of 32 bots in a game
-bool b_observer_mode = FALSE;
-bool b_botdontshoot = FALSE;
+bool b_observer_mode = false;
+bool b_botdontshoot = false;
 int bot_chat_percent = 10;
 
 int number_names = 0;
@@ -63,7 +63,7 @@ void BotSpawnInit(bot_t *pBot) {
   pBot->pBotEnemy = nullptr;
   pBot->f_bot_see_enemy_time = gpGlobals->time;
   pBot->f_bot_find_enemy_time = gpGlobals->time;
-  pBot->b_bot_say_killed = FALSE;
+  pBot->b_bot_say_killed = false;
   pBot->f_bot_say_killed = 0.0f;
 }
 
@@ -113,24 +113,24 @@ static std::string BotPickName() {
 
   // see if a name exists from a kicked bot (if so, reuse it)
   for (index = 0; index < 32; index++) {
-    if (bots[index].is_used == FALSE && !bots[index].name.empty())
+    if (bots[index].is_used == false && !bots[index].name.empty())
       return bots[index].name;
   }
 
   int name_index = RANDOM_LONG(1, number_names) - 1; // zero based
 
   // check make sure this name isn't used
-  bool used = TRUE;
+  bool used = true;
 
   while (used) {
-    used = FALSE;
+    used = false;
 
     for (index = 1; index <= gpGlobals->maxClients; index++) {
       const edict_t *pPlayer = INDEXENT(index);
 
       if (pPlayer && !pPlayer->free) {
         if (bot_names[name_index] == STRING(pPlayer->v.netname)) {
-          used = TRUE;
+          used = true;
           break;
         }
       }
@@ -145,7 +145,7 @@ static std::string BotPickName() {
       attempts++;
 
       if (attempts == number_names)
-        used = FALSE; // break out of loop even if already used
+        used = false; // break out of loop even if already used
     }
   }
 
@@ -205,7 +205,7 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
 
     bot_t *pBot = &bots[index]; // initialize all the variables for this bot...
 
-    pBot->is_used = TRUE;
+    pBot->is_used = true;
     pBot->respawn_state = RespawnState::Idle;
     pBot->create_time = gpGlobals->time;
     pBot->name.clear(); // name not set by server yet
@@ -214,7 +214,7 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
 
     BotSpawnInit(pBot);
 
-    pBot->need_to_initialize = FALSE; // don't need to initialize yet
+    pBot->need_to_initialize = false; // don't need to initialize yet
 
     BotEnt->v.idealpitch = BotEnt->v.v_angle.x;
     BotEnt->v.ideal_yaw = BotEnt->v.v_angle.y;
@@ -353,20 +353,20 @@ bool IsDeadlyDrop(bot_t *pBot, const Vector &vecTargetPos) {
 
     // Wall blocking ?
     if (tr.fStartSolid)
-      return FALSE;
+      return false;
 
     const float height = tr.flFraction * 1000.0f; // height from ground
 
     // Drops more than 100 Units ?
     if (last_height < height - 100)
-      return TRUE;
+      return true;
 
     last_height = height;
 
     distance = (vecTargetPos - v_check).Length(); // distance from goal
   }
 
-  return FALSE;
+  return false;
 }
 
 // Adjust all Bot Body and View Angles to face an absolute Vector
@@ -530,11 +530,11 @@ void BotThink(bot_t *pBot) {
   pBot->f_sidemove_speed = 0.0f;
 
   if (FNullEnt(pBot->killer_edict))
-    pBot->b_bot_say_killed = FALSE;
+    pBot->b_bot_say_killed = false;
 
   if (pBot->b_bot_say_killed && pBot->f_bot_say_killed < gpGlobals->time) {
     int whine_index = 0;
-    pBot->b_bot_say_killed = FALSE;
+    pBot->b_bot_say_killed = false;
 
     for (std::size_t attempt = 0; attempt < std::size(recent_bot_whine);
          ++attempt) {
@@ -571,12 +571,12 @@ void BotThink(bot_t *pBot) {
       // did another player kill this bot AND bot whine messages loaded
       if (pBot->killer_edict != nullptr && whine_count > 0) {
         if (RANDOM_LONG(1, 100) <= bot_chat_percent) {
-          pBot->b_bot_say_killed = TRUE;
+          pBot->b_bot_say_killed = true;
           pBot->f_bot_say_killed = gpGlobals->time + RANDOM_FLOAT(0.5f, 2.5f);
         }
       }
 
-      pBot->need_to_initialize = FALSE;
+      pBot->need_to_initialize = false;
     }
 
     if (RANDOM_LONG(1, 100) > 50)
@@ -589,8 +589,8 @@ void BotThink(bot_t *pBot) {
   }
 
   // set this for the next time the bot dies so it will initialize stuff
-  if (pBot->need_to_initialize == FALSE)
-    pBot->need_to_initialize = TRUE;
+  if (pBot->need_to_initialize == false)
+    pBot->need_to_initialize = true;
 
   // Get Speed Multiply Factor by dividing Target FPS by real FPS
   float fSpeedFactor =

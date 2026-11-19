@@ -58,16 +58,16 @@ int min_bots = -1;
 int max_bots = -1;
 int num_bots = 0;
 int prev_num_bots = 0;
-bool g_GameRules = FALSE;
+bool g_GameRules = false;
 edict_t *listenserver_edict = nullptr;
 float welcome_time = 0.0;
-bool welcome_sent = FALSE;
+bool welcome_sent = false;
 
 FILE *bot_cfg_fp = nullptr;
-bool need_to_open_cfg = TRUE;
+bool need_to_open_cfg = true;
 float bot_cfg_pause_time = 0.0f;
 float respawn_time = 0.0f;
-bool spawn_time_reset = FALSE;
+bool spawn_time_reset = false;
 
 std::array<std::string, MAX_BOT_WHINE> bot_whine;
 int whine_count;
@@ -202,11 +202,11 @@ int DispatchSpawn(edict_t *pent) {
     const char *pClassname = const_cast<char *>(STRING(pent->v.classname));
 
     if (strcmp(pClassname, "worldspawn") == 0) {
-      g_GameRules = TRUE;
+      g_GameRules = true;
 
       bot_cfg_pause_time = 0.0f;
       respawn_time = 0.0f;
-      spawn_time_reset = FALSE;
+      spawn_time_reset = false;
 
       prev_num_bots = num_bots;
       num_bots = 0;
@@ -262,7 +262,7 @@ void ClientDisconnect(edict_t *pEntity) {
     for (bot_t &bot : bots) {
       if (bot.pEdict == pEntity) {
         // someone kicked this bot off of the server...
-        bot.is_used = FALSE;             // this slot is now free to use
+        bot.is_used = false;             // this slot is now free to use
         bot.kick_time = gpGlobals->time; // save the kicked time
         break;
       }
@@ -293,9 +293,9 @@ void ClientCommand(edict_t *pEntity) {
       if ((arg1 != nullptr) && (*arg1 != 0)) {
         const int temp = atoi(arg1);
         if (temp)
-          b_observer_mode = TRUE;
+          b_observer_mode = true;
         else
-          b_observer_mode = FALSE;
+          b_observer_mode = false;
       }
 
       if (b_observer_mode)
@@ -322,9 +322,9 @@ void ClientCommand(edict_t *pEntity) {
       if ((arg1 != nullptr) && (*arg1 != 0)) {
         const int temp = atoi(arg1);
         if (temp)
-          b_botdontshoot = TRUE;
+          b_botdontshoot = true;
         else
-          b_botdontshoot = FALSE;
+          b_botdontshoot = false;
       }
 
       if (b_botdontshoot)
@@ -376,7 +376,7 @@ void StartFrame() {
 
       if (bot_cfg_fp != nullptr) {
         for (index = 0; index < 32; index++) {
-          bots[index].is_used = FALSE;
+          bots[index].is_used = false;
           bots[index].respawn_state = RespawnState::Unused;
           bots[index].kick_time = 0.0f;
         }
@@ -391,7 +391,7 @@ void StartFrame() {
         // mark the bots as needing to be respawned...
         for (index = 0; index < 32; index++) {
           if (count >= prev_num_bots) {
-            bots[index].is_used = FALSE;
+            bots[index].is_used = false;
             bots[index].respawn_state = RespawnState::Unused;
             bots[index].kick_time = 0.0f;
           }
@@ -421,7 +421,7 @@ void StartFrame() {
     }
 
     if (!IS_DEDICATED_SERVER()) {
-      if (listenserver_edict != nullptr && welcome_sent == FALSE &&
+      if (listenserver_edict != nullptr && welcome_sent == false &&
           welcome_time < 1.0f) {
         // are they out of observer mode yet?
         if (IsAlive(listenserver_edict))
@@ -429,7 +429,7 @@ void StartFrame() {
       }
 
       if (welcome_time > 0.0f && welcome_time < gpGlobals->time &&
-          welcome_sent == FALSE) {
+          welcome_sent == false) {
         // send the welcome message to this client
         MESSAGE_BEGIN(MSG_ONE_UNRELIABLE, SVC_TEMPENTITY, nullptr,
                       listenserver_edict);
@@ -453,7 +453,7 @@ void StartFrame() {
         MESSAGE_END();
         char welcome_sound[] = "speak barney/guyresponsible\n";
         SERVER_COMMAND(welcome_sound);
-        welcome_sent = TRUE; // clear this so we only do it once
+        welcome_sent = true; // clear this so we only do it once
       }
     }
 
@@ -482,7 +482,7 @@ void StartFrame() {
 
       if (index < 32) {
         bots[index].respawn_state = RespawnState::InProgress;
-        bots[index].is_used = FALSE; // free up this slot
+        bots[index].is_used = false; // free up this slot
 
         // respawn 1 bot then wait a while (otherwise engine crashes)
         char c_skill[2];
@@ -502,7 +502,7 @@ void StartFrame() {
         char filename[256];
         char mapname[64];
 
-        need_to_open_cfg = FALSE; // only do this once!!!
+        need_to_open_cfg = false; // only do this once!!!
 
         // check if mapname_bot.cfg file exists...
 
@@ -527,7 +527,7 @@ void StartFrame() {
       if (!IS_DEDICATED_SERVER() && !spawn_time_reset) {
         if (listenserver_edict != nullptr) {
           if (IsAlive(listenserver_edict)) {
-            spawn_time_reset = TRUE;
+            spawn_time_reset = true;
 
             if (respawn_time >= 1.0f)
               respawn_time = std::fmin(respawn_time, gpGlobals->time + 1.0f);

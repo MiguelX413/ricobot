@@ -217,9 +217,9 @@ bool FInViewCone(Vector *pOrigin, edict_t *pEdict) {
   const float flDot = DotProduct(vec2LOS, gpGlobals->v_forward.Make2D());
 
   if (flDot > 0.50f) // 60 degree field of view
-    return TRUE;
+    return true;
   else
-    return FALSE;
+    return false;
 }
 
 bool FVisible(const Vector &vecOrigin, edict_t *pEdict) {
@@ -234,15 +234,15 @@ bool FVisible(const Vector &vecOrigin, edict_t *pEdict) {
 
   // don't look through water
   if (bInWater != bLookerInWater)
-    return FALSE;
+    return false;
 
   UTIL_TraceLine(vecLookerOrigin, vecOrigin, ignore_monsters, ignore_glass,
                  pEdict, &tr);
 
   if (tr.flFraction != 1.0f)
-    return FALSE; // Line of sight is not established
+    return false; // Line of sight is not established
   else
-    return TRUE; // line of sight is valid.
+    return true; // line of sight is valid.
 }
 
 Vector Center(edict_t *pEdict) { return Vector(); }
