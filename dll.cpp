@@ -42,7 +42,7 @@ char welcome_msg[] = "Welcome to Ricobot by Wei Mingzhi\n"
                      "Visit http://yapb.bots-united.com\n"
                      "Compile date: " __DATE__ "\n";
 
-DLL_GLOBAL const Vector g_vecZero = Vector(0,0,0);
+DLL_GLOBAL const Vector g_vecZero = Vector(0, 0, 0);
 
 int default_bot_skill = 2;
 float bot_check_time = 30.0f;
@@ -82,40 +82,42 @@ void GameDLLInit()
    // initialize the bots array of structures...
    memset(bots, 0, sizeof(bots));
 
-   for (int& i : recent_bot_whine)
-	   i = -1;
+   for (int &i : recent_bot_whine)
+      i = -1;
 
    BotNameInit();
 
    UTIL_BuildFileName(filename, "bot_whine.txt", nullptr);
 
-   FILE* bfp = fopen(filename, "r");
+   FILE *bfp = fopen(filename, "r");
 
    if (bfp != nullptr)
    {
-	   char *ptr;
-	   char buffer[256];
-	   while ((whine_count < MAX_BOT_WHINE) &&
+      char *ptr;
+      char buffer[256];
+      while ((whine_count < MAX_BOT_WHINE) &&
              (fgets(buffer, 80, bfp) != nullptr))
       {
          unsigned length = strlen(buffer);
 
          if (length > 0 && buffer[length - 1] == '\n')
          {
-             buffer[length - 1] = '\0';  // remove '\n'
-             length--;
+            buffer[length - 1] = '\0'; // remove '\n'
+            length--;
          }
 
          if ((ptr = strstr(buffer, "%n")) != nullptr)
          {
-            *(ptr+1) = 's';  // change %n to %s
+            *(ptr + 1) = 's'; // change %n to %s
          }
 
          if (length > 0)
          {
-             strncpy(bot_whine[whine_count], buffer, sizeof(bot_whine[whine_count]) - 1);
-             bot_whine[whine_count][sizeof(bot_whine[whine_count]) - 1] = '\0'; // Ensure null-termination
-             whine_count++;
+            strncpy(bot_whine[whine_count], buffer,
+                    sizeof(bot_whine[whine_count]) - 1);
+            bot_whine[whine_count][sizeof(bot_whine[whine_count]) - 1] =
+                '\0'; // Ensure null-termination
+            whine_count++;
          }
       }
 
@@ -128,26 +130,32 @@ mutil_funcs_t *gpMetaUtilFuncs;
 meta_globals_t *gpMetaGlobals;
 
 META_FUNCTIONS gMetaFunctionTable = {
-   GetEntityAPI, nullptr, nullptr, nullptr, nullptr,
-   nullptr, GetEngineFunctions, nullptr
-};
+    GetEntityAPI,       nullptr, nullptr, nullptr, nullptr, nullptr,
+    GetEngineFunctions, nullptr};
 
-plugin_info_t Plugin_info = { META_INTERFACE_VERSION, "Ricobot", "1.2", __DATE__, "Wei Mingzhi",
-    "http://yapb.bots-united.com", "RICOBOT", PT_STARTUP, PT_ANYTIME };
+plugin_info_t Plugin_info = {META_INTERFACE_VERSION,
+                             "Ricobot",
+                             "1.2",
+                             __DATE__,
+                             "Wei Mingzhi",
+                             "http://yapb.bots-united.com",
+                             "RICOBOT",
+                             PT_STARTUP,
+                             PT_ANYTIME};
 
 // Metamod requesting info about this plugin
 C_DLLEXPORT int Meta_Query(char *, plugin_info_t **pPlugInfo,
-                           mutil_funcs_t *pMetaUtilFuncs) 
+                           mutil_funcs_t *pMetaUtilFuncs)
 {
-   *pPlugInfo = &Plugin_info; // Give metamod our plugin_info struct
+   *pPlugInfo = &Plugin_info;        // Give metamod our plugin_info struct
    gpMetaUtilFuncs = pMetaUtilFuncs; // Get metamod utility function table.
    return TRUE;
 }
 
 // Metamod attaching plugin to the server
-C_DLLEXPORT int Meta_Attach(PLUG_LOADTIME,
-   META_FUNCTIONS *pFunctionTable, meta_globals_t *pMGlobals, 
-   gamedll_funcs_t *pGamedllFuncs) 
+C_DLLEXPORT int Meta_Attach(PLUG_LOADTIME, META_FUNCTIONS *pFunctionTable,
+                            meta_globals_t *pMGlobals,
+                            gamedll_funcs_t *pGamedllFuncs)
 {
    if (!pMGlobals)
    {
@@ -172,21 +180,18 @@ C_DLLEXPORT int Meta_Attach(PLUG_LOADTIME,
 }
 
 // Metamod detaching plugin from the server
-C_DLLEXPORT int Meta_Detach(PLUG_LOADTIME, PL_UNLOAD_REASON) 
-{
-   return TRUE;
-}
+C_DLLEXPORT int Meta_Detach(PLUG_LOADTIME, PL_UNLOAD_REASON) { return TRUE; }
 
 void ServerCommand()
 {
    if (strcmp(CMD_ARGV(1), "addbot") == 0)
    {
-      BotCreate(nullptr, CMD_ARGV(2), CMD_ARGV(3) );
+      BotCreate(nullptr, CMD_ARGV(2), CMD_ARGV(3));
       bot_check_time = gpGlobals->time + 5.0f;
    }
    else if (strcmp(CMD_ARGV(1), "min_bots") == 0)
    {
-      min_bots = atoi( CMD_ARGV(2) );
+      min_bots = atoi(CMD_ARGV(2));
 
       if ((min_bots < 0) || (min_bots > 31))
          min_bots = 1;
@@ -195,20 +200,20 @@ void ServerCommand()
    }
    else if (strcmp(CMD_ARGV(1), "max_bots") == 0)
    {
-      max_bots = atoi( CMD_ARGV(2) );
+      max_bots = atoi(CMD_ARGV(2));
 
-      if ((max_bots < 0) || (max_bots > 31)) 
+      if ((max_bots < 0) || (max_bots > 31))
          max_bots = 1;
 
       printf("max_bots set to %d\n", max_bots);
    }
 }
 
-int DispatchSpawn( edict_t *pent )
+int DispatchSpawn(edict_t *pent)
 {
    if (gpGlobals->deathmatch)
    {
-	   const char *pClassname = const_cast<char *>(STRING(pent->v.classname));
+      const char *pClassname = const_cast<char *>(STRING(pent->v.classname));
 
       if (strcmp(pClassname, "worldspawn") == 0)
       {
@@ -228,25 +233,27 @@ int DispatchSpawn( edict_t *pent )
    RETURN_META_VALUE(MRES_IGNORED, 0);
 }
 
-BOOL ClientConnect( edict_t *pEntity, const char *pszName, const char *pszAddress, char szRejectReason[ 128 ]  )
-{ 
+BOOL ClientConnect(edict_t *pEntity, const char *pszName,
+                   const char *pszAddress, char szRejectReason[128])
+{
    if (gpGlobals->deathmatch)
    {
-	   // check if this client is the listen server client
+      // check if this client is the listen server client
       if (strcmp(pszAddress, "loopback") == 0)
-         listenserver_edict = pEntity; // save the edict of the listen server client...
+         listenserver_edict =
+             pEntity; // save the edict of the listen server client...
 
       // check if this is NOT a bot joining the server...
       if (strcmp(pszAddress, "127.0.0.1") != 0)
       {
-	      int count = 0;
-	      int i;
-	      // don't try to add bots for 60 seconds, give client time to get added
+         int count = 0;
+         int i;
+         // don't try to add bots for 60 seconds, give client time to get added
          bot_check_time = gpGlobals->time + 60.0f;
 
          for (i = 0; i < 32; i++)
          {
-            if (bots[i].is_used)  // count the number of bots in use
+            if (bots[i].is_used) // count the number of bots in use
                count++;
          }
 
@@ -254,13 +261,14 @@ BOOL ClientConnect( edict_t *pEntity, const char *pszName, const char *pszAddres
          // then kick one of the bots off the server...
          if (count > min_bots && min_bots != -1)
          {
-            for (i=0; i < 32; i++)
+            for (i = 0; i < 32; i++)
             {
-               if (bots[i].is_used)  // is this slot used?
+               if (bots[i].is_used) // is this slot used?
                {
                   char cmd[80];
-                  sprintf(cmd, "kick \"%s\"\n", STRING(bots[i].pEdict->v.netname));
-                  SERVER_COMMAND(cmd);  // kick the bot using (kick "name")
+                  sprintf(cmd, "kick \"%s\"\n",
+                          STRING(bots[i].pEdict->v.netname));
+                  SERVER_COMMAND(cmd); // kick the bot using (kick "name")
                   break;
                }
             }
@@ -271,17 +279,17 @@ BOOL ClientConnect( edict_t *pEntity, const char *pszName, const char *pszAddres
    RETURN_META_VALUE(MRES_IGNORED, 0);
 }
 
-void ClientDisconnect( edict_t *pEntity )
+void ClientDisconnect(edict_t *pEntity)
 {
    if (gpGlobals->deathmatch)
    {
-      for (bot_t& bot : bots)
+      for (bot_t &bot : bots)
       {
          if (bot.pEdict == pEntity)
          {
             // someone kicked this bot off of the server...
-            bot.is_used = FALSE;  // this slot is now free to use
-            bot.kick_time = gpGlobals->time;  // save the kicked time
+            bot.is_used = FALSE;             // this slot is now free to use
+            bot.kick_time = gpGlobals->time; // save the kicked time
             break;
          }
       }
@@ -290,7 +298,7 @@ void ClientDisconnect( edict_t *pEntity )
    RETURN_META(MRES_IGNORED);
 }
 
-void ClientCommand( edict_t *pEntity )
+void ClientCommand(edict_t *pEntity)
 {
    // only allow custom commands if deathmatch mode and NOT dedicated server and
    // client sending command is the listen server client...
@@ -305,7 +313,7 @@ void ClientCommand( edict_t *pEntity )
 
       if (FStrEq(pcmd, "addbot"))
       {
-         BotCreate( pEntity, arg1, arg2 );
+         BotCreate(pEntity, arg1, arg2);
 
          bot_check_time = gpGlobals->time + 5.0f;
 
@@ -315,7 +323,7 @@ void ClientCommand( edict_t *pEntity )
       {
          if ((arg1 != nullptr) && (*arg1 != 0))
          {
-	         const int temp = atoi(arg1);
+            const int temp = atoi(arg1);
             if (temp)
                b_observer_mode = TRUE;
             else
@@ -333,10 +341,11 @@ void ClientCommand( edict_t *pEntity )
       {
          if ((arg1 != nullptr) && (*arg1 != 0))
          {
-	         const int temp = atoi(arg1);
+            const int temp = atoi(arg1);
 
             if (temp < 1 || temp > 5)
-               ClientPrint(pEntity, HUD_PRINTNOTIFY, "invalid botskill value!\n");
+               ClientPrint(pEntity, HUD_PRINTNOTIFY,
+                           "invalid botskill value!\n");
             else
                default_bot_skill = temp;
          }
@@ -350,7 +359,7 @@ void ClientCommand( edict_t *pEntity )
       {
          if ((arg1 != nullptr) && (*arg1 != 0))
          {
-	         const int temp = atoi(arg1);
+            const int temp = atoi(arg1);
             if (temp)
                b_botdontshoot = TRUE;
             else
@@ -368,15 +377,17 @@ void ClientCommand( edict_t *pEntity )
       {
          if ((arg1 != nullptr) && (*arg1 != 0))
          {
-	         const int temp = atoi(arg1);
+            const int temp = atoi(arg1);
 
             if ((temp < 0) || (temp > 100))
-               ClientPrint(pEntity, HUD_PRINTNOTIFY, "invalid bot_chat_percent value!\n");
+               ClientPrint(pEntity, HUD_PRINTNOTIFY,
+                           "invalid bot_chat_percent value!\n");
             else
                bot_chat_percent = temp;
          }
 
-         snprintf(msg, sizeof(msg), "bot_chat_percent is %d\n", bot_chat_percent);
+         snprintf(msg, sizeof(msg), "bot_chat_percent is %d\n",
+                  bot_chat_percent);
          ClientPrint(pEntity, HUD_PRINTNOTIFY, msg);
 
          RETURN_META(MRES_SUPERCEDE);
@@ -435,7 +446,7 @@ void StartFrame()
                   bots[index].kick_time = 0.0f;
                }
 
-               if (bots[index].is_used)  // is this slot used?
+               if (bots[index].is_used) // is this slot used?
                {
                   bots[index].respawn_state = RESPAWN_NEED_TO_RESPAWN;
                   count++;
@@ -448,7 +459,8 @@ void StartFrame()
                   count++;
                }
                else
-                  bots[index].kick_time = 0.0f;  // reset to prevent false spawns later
+                  bots[index].kick_time =
+                      0.0f; // reset to prevent false spawns later
             }
 
             // set the respawn time
@@ -468,14 +480,15 @@ void StartFrame()
          {
             // are they out of observer mode yet?
             if (IsAlive(listenserver_edict))
-               welcome_time = gpGlobals->time + 5.0f;  // welcome in 5 seconds
+               welcome_time = gpGlobals->time + 5.0f; // welcome in 5 seconds
          }
 
          if (welcome_time > 0.0f && welcome_time < gpGlobals->time &&
              welcome_sent == FALSE)
          {
             // send the welcome message to this client
-            MESSAGE_BEGIN(MSG_ONE_UNRELIABLE, SVC_TEMPENTITY, nullptr, listenserver_edict);
+            MESSAGE_BEGIN(MSG_ONE_UNRELIABLE, SVC_TEMPENTITY, nullptr,
+                          listenserver_edict);
             WRITE_BYTE(TE_TEXTMESSAGE);
             WRITE_BYTE(1);
             WRITE_SHORT(-1);
@@ -495,7 +508,7 @@ void StartFrame()
             WRITE_STRING(welcome_msg);
             MESSAGE_END();
             SERVER_COMMAND("speak barney/guyresponsible\n");
-            welcome_sent = TRUE;  // clear this so we only do it once
+            welcome_sent = TRUE; // clear this so we only do it once
          }
       }
 
@@ -503,8 +516,8 @@ void StartFrame()
 
       for (bot_index = 0; bot_index < gpGlobals->maxClients; bot_index++)
       {
-         if (bots[bot_index].is_used &&  // is this slot used AND
-             bots[bot_index].respawn_state == RESPAWN_IDLE)  // not respawning
+         if (bots[bot_index].is_used && // is this slot used AND
+             bots[bot_index].respawn_state == RESPAWN_IDLE) // not respawning
          {
             BotThink(&bots[bot_index]);
 
@@ -528,14 +541,14 @@ void StartFrame()
          if (index < 32)
          {
             bots[index].respawn_state = RESPAWN_IS_RESPAWNING;
-            bots[index].is_used = FALSE;      // free up this slot
+            bots[index].is_used = FALSE; // free up this slot
 
             // respawn 1 bot then wait a while (otherwise engine crashes)
             char c_skill[2];
             sprintf(c_skill, "%d", bots[index].bot_skill);
             BotCreate(nullptr, bots[index].name, c_skill);
 
-            respawn_time = gpGlobals->time + 2.0f;  // set next respawn time
+            respawn_time = gpGlobals->time + 2.0f; // set next respawn time
 
             bot_check_time = gpGlobals->time + 5.0f;
          }
@@ -545,12 +558,12 @@ void StartFrame()
 
       if (g_GameRules)
       {
-         if (need_to_open_cfg)  // have we open bot.cfg file yet?
+         if (need_to_open_cfg) // have we open bot.cfg file yet?
          {
             char filename[256];
             char mapname[64];
 
-            need_to_open_cfg = FALSE;  // only do this once!!!
+            need_to_open_cfg = FALSE; // only do this once!!!
 
             // check if mapname_bot.cfg file exists...
 
@@ -580,16 +593,18 @@ void StartFrame()
                   spawn_time_reset = TRUE;
 
                   if (respawn_time >= 1.0f)
-                     respawn_time = std::fmin(respawn_time, gpGlobals->time + 1.0f);
+                     respawn_time =
+                         std::fmin(respawn_time, gpGlobals->time + 1.0f);
 
                   if (bot_cfg_pause_time >= 1.0f)
-                     bot_cfg_pause_time = std::fmin(bot_cfg_pause_time, gpGlobals->time + 1.0f);
+                     bot_cfg_pause_time =
+                         std::fmin(bot_cfg_pause_time, gpGlobals->time + 1.0f);
                }
             }
          }
 
-         if (bot_cfg_fp &&
-             bot_cfg_pause_time >= 1.0f && bot_cfg_pause_time <= gpGlobals->time)
+         if (bot_cfg_fp && bot_cfg_pause_time >= 1.0f &&
+             bot_cfg_pause_time <= gpGlobals->time)
          {
             // process bot.cfg file options...
             ProcessBotCfgFile();
@@ -604,9 +619,9 @@ void StartFrame()
 
          for (i = 1; i <= gpGlobals->maxClients; i++)
          {
-	         const edict_t *pPlayer = INDEXENT(i);
+            const edict_t *pPlayer = INDEXENT(i);
             if (!FNullEnt(pPlayer) && !pPlayer->free &&
-               pPlayer->v.flags & (FL_CLIENT | FL_FAKECLIENT))
+                pPlayer->v.flags & (FL_CLIENT | FL_FAKECLIENT))
                count++;
          }
 
@@ -622,7 +637,8 @@ void StartFrame()
    RETURN_META(MRES_IGNORED);
 }
 
-C_DLLEXPORT int GetEntityAPI( DLL_FUNCTIONS *pFunctionTable, int interfaceVersion )
+C_DLLEXPORT int GetEntityAPI(DLL_FUNCTIONS *pFunctionTable,
+                             int interfaceVersion)
 {
    memset(pFunctionTable, 0, sizeof(DLL_FUNCTIONS));
 
@@ -637,7 +653,7 @@ C_DLLEXPORT int GetEntityAPI( DLL_FUNCTIONS *pFunctionTable, int interfaceVersio
 
 void ProcessBotCfgFile()
 {
-	char cmd_line[256];
+   char cmd_line[256];
    int cmd_index;
    static char server_cmd[80];
    char *cmd, *arg1, *arg2;
@@ -660,7 +676,7 @@ void ProcessBotCfgFile()
 
    while (ch != EOF && ch != '\r' && ch != '\n')
    {
-      if (ch == '\t')  // convert tabs to spaces
+      if (ch == '\t') // convert tabs to spaces
          ch = ' ';
 
       cmd_line[cmd_index] = ch;
@@ -668,16 +684,15 @@ void ProcessBotCfgFile()
       ch = fgetc(bot_cfg_fp);
 
       // skip multiple spaces in input file
-      while (cmd_line[cmd_index] == ' ' &&
-             ch == ' ')      
+      while (cmd_line[cmd_index] == ' ' && ch == ' ')
          ch = fgetc(bot_cfg_fp);
 
       cmd_index++;
    }
 
-   if (ch == '\r')  // is it a carriage return?
+   if (ch == '\r') // is it a carriage return?
    {
-      ch = fgetc(bot_cfg_fp);  // skip the linefeed
+      ch = fgetc(bot_cfg_fp); // skip the linefeed
    }
 
    // if reached end of file, then close it
@@ -690,7 +705,7 @@ void ProcessBotCfgFile()
       bot_cfg_pause_time = 0.0f;
    }
 
-   cmd_line[cmd_index] = 0;  // terminate the command line
+   cmd_line[cmd_index] = 0; // terminate the command line
 
    // copy the command line to a server command buffer...
    snprintf(server_cmd, sizeof(server_cmd), "%s\n", cmd_line);
@@ -720,11 +735,11 @@ void ProcessBotCfgFile()
    }
 
    if (cmd_line[0] == '#' || cmd_line[0] == 0)
-      return;  // return if comment or blank line
+      return; // return if comment or blank line
 
    if (strcmp(cmd, "addbot") == 0)
    {
-      BotCreate(nullptr, arg1, arg2 );
+      BotCreate(nullptr, arg1, arg2);
 
       // have to delay here or engine gives "Tried to write to
       // uninitialized sizebuf_t" error and crashes...
@@ -737,20 +752,22 @@ void ProcessBotCfgFile()
 
    if (strcmp(cmd, "botskill") == 0)
    {
-       if (arg1 != nullptr && arg1[0] != '\0') // Check if arg1 is not a null pointer and not an empty string
-       {
-           const int temp = std::atoi(arg1);
+      if (arg1 != nullptr &&
+          arg1[0] !=
+              '\0') // Check if arg1 is not a null pointer and not an empty string
+      {
+         const int temp = std::atoi(arg1);
 
-           if (temp >= 1 && temp <= 5)
-               default_bot_skill = temp;  // set default bot skill level
-       }
+         if (temp >= 1 && temp <= 5)
+            default_bot_skill = temp; // set default bot skill level
+      }
 
-       return;
+      return;
    }
-	
+
    if (strcmp(cmd, "observer") == 0)
    {
-	   const int temp = std::atoi(arg1);
+      const int temp = std::atoi(arg1);
 
       if (temp)
          b_observer_mode = TRUE;
@@ -762,7 +779,7 @@ void ProcessBotCfgFile()
 
    if (strcmp(cmd, "botdontshoot") == 0)
    {
-	   const int temp = std::atoi(arg1);
+      const int temp = std::atoi(arg1);
 
       if (temp)
          b_botdontshoot = TRUE;
@@ -774,31 +791,31 @@ void ProcessBotCfgFile()
 
    if (strcmp(cmd, "min_bots") == 0)
    {
-       min_bots = std::atoi(arg1);
+      min_bots = std::atoi(arg1);
 
-       if (min_bots < 0 || min_bots > 31)
-           min_bots = 1;
+      if (min_bots < 0 || min_bots > 31)
+         min_bots = 1;
 
-       if (IS_DEDICATED_SERVER())
-       {
-           snprintf(msg, sizeof(msg), "min_bots set to %d\n", min_bots);
-           printf("%s", msg);  // Corrected printf call
-       }
+      if (IS_DEDICATED_SERVER())
+      {
+         snprintf(msg, sizeof(msg), "min_bots set to %d\n", min_bots);
+         printf("%s", msg); // Corrected printf call
+      }
 
-       return;
+      return;
    }
 
    if (strcmp(cmd, "max_bots") == 0)
    {
       max_bots = std::atoi(arg1);
 
-      if (max_bots < 0 || max_bots > 31) 
+      if (max_bots < 0 || max_bots > 31)
          max_bots = 1;
 
       if (IS_DEDICATED_SERVER())
       {
          snprintf(msg, sizeof(msg), "max_bots set to %d\n", max_bots);
-         printf("%s", msg);  // Corrected printf call
+         printf("%s", msg); // Corrected printf call
       }
 
       return;
@@ -806,20 +823,19 @@ void ProcessBotCfgFile()
 
    if (strcmp(cmd, "pause") == 0)
    {
-      bot_cfg_pause_time = gpGlobals->time + std::atoi( arg1 );
+      bot_cfg_pause_time = gpGlobals->time + std::atoi(arg1);
       return;
    }
 
    if (strcmp(cmd, "bot_chat_percent") == 0)
    {
-	   const int temp = std::atoi(arg1);
+      const int temp = std::atoi(arg1);
 
       if (temp >= 0 && temp <= 100)
-         bot_chat_percent = std::atoi( arg1 );  // set bot chat percent
+         bot_chat_percent = std::atoi(arg1); // set bot chat percent
 
       return;
    }
 
    SERVER_COMMAND(server_cmd);
 }
-

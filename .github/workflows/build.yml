@@ -26,6 +26,10 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Check C++ formatting (Linux)
+        if: runner.os == 'Linux'
+        run: clang-format-22 --dry-run --Werror ./*.cpp ./*.h
+
       - name: Read Linux runner image version
         if: runner.os == 'Linux'
         id: linux-image
@@ -42,16 +46,48 @@ jobs:
 
       - name: Install Linux toolchain
         if: runner.os == 'Linux'
+        timeout-minutes: 5
         run: |
+          if printf '#include <vector>\nint main() {}\n' |
+              clang++-22 -m32 -x c++ - -o "$RUNNER_TEMP/ricobot-x86-probe"; then
+            exit 0
+          fi
+
           apt_cache="$RUNNER_TEMP/ricobot-apt"
           mkdir -p "$apt_cache/partial"
-          sudo apt-get update
-          sudo apt-get -o "Dir::Cache::archives=$apt_cache" install -y clang g++-multilib
+
+          # Use Ubuntu's primary archive for the multilib packages.
+          apt_sources="$RUNNER_TEMP/ricobot-ubuntu.list"
+          . /etc/os-release
+          printf 'deb https://archive.ubuntu.com/ubuntu %s main universe\n' \
+            "$VERSION_CODENAME" "$VERSION_CODENAME-updates" > "$apt_sources"
+          printf 'deb https://security.ubuntu.com/ubuntu %s-security main universe\n' \
+            "$VERSION_CODENAME" >> "$apt_sources"
+          apt_options=(
+            -o "Dir::Etc::sourcelist=$apt_sources"
+            -o Dir::Etc::sourceparts=-
+            -o "Dir::Cache::archives=$apt_cache"
+            -o Acquire::Retries=1
+            -o Acquire::https::Timeout=15
+          )
+          echo "::group::Refresh Ubuntu package indexes"
+          sudo apt-get "${apt_options[@]}" update --error-on=any
+          echo "::endgroup::"
+          sudo apt-get "${apt_options[@]}" install -y --no-install-recommends g++-multilib
+
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: >
+          cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++-22
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Check C++ lint (Linux)
+        if: runner.os == 'Linux'
+        run: clang-tidy-22 -p build ./*.cpp
 
       - name: Build (Linux)
         if: runner.os == 'Linux'
         run: |
-          cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=RelWithDebInfo
           cmake --build build --parallel
 
           mkdir -p dist

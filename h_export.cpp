@@ -41,10 +41,10 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 enginefuncs_t g_engfuncs;
 globalvars_t *gpGlobals;
 
-void WINAPI GiveFnptrsToDll( enginefuncs_t* pengfuncsFromEngine, globalvars_t *pGlobals )
+void WINAPI GiveFnptrsToDll(enginefuncs_t *pengfuncsFromEngine,
+                            globalvars_t *pGlobals)
 {
    // get the engine functions from the engine...
    memcpy(&g_engfuncs, pengfuncsFromEngine, sizeof(enginefuncs_t));
    gpGlobals = pGlobals;
 }
-

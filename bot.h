@@ -38,7 +38,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define BOT_H
 
 #ifdef _WIN32
-#pragma warning (disable : 4710) // function not inlined
+#pragma warning(disable : 4710) // function not inlined
 #endif
 
 #include <cstring>
@@ -56,9 +56,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define BOT_PITCH_SPEED 30
 #define BOT_YAW_SPEED 30
 
-#define RESPAWN_IDLE             1
-#define RESPAWN_NEED_TO_RESPAWN  2
-#define RESPAWN_IS_RESPAWNING    3
+#define RESPAWN_IDLE 1
+#define RESPAWN_NEED_TO_RESPAWN 2
+#define RESPAWN_IS_RESPAWNING 3
 
 #define BOT_SKIN_LEN 32
 #define BOT_NAME_LEN 32
@@ -71,8 +71,8 @@ typedef struct
    int respawn_state;
    edict_t *pEdict;
    bool need_to_initialize;
-   char name[BOT_NAME_LEN+1];
-   char skin[BOT_SKIN_LEN+1];
+   char name[BOT_NAME_LEN + 1];
+   char skin[BOT_SKIN_LEN + 1];
    int bot_skill;
    int not_started;
    float kick_time;
@@ -85,14 +85,14 @@ typedef struct
 
    float fUpdateTime;
    float fLastRunPlayerMoveTime;
-	
+
    float f_max_speed;
 
    edict_t *pBotEnemy;
    float f_bot_see_enemy_time;
    float f_bot_find_enemy_time;
    edict_t *killer_edict;
-   bool  b_bot_say_killed;
+   bool b_bot_say_killed;
    float f_bot_say_killed;
 
    float f_move_speed;
@@ -116,7 +116,7 @@ extern int recent_bot_whine[5];
 extern bot_t bots[32];
 
 extern enginefuncs_t g_engfuncs;
-extern globalvars_t  *gpGlobals;
+extern globalvars_t *gpGlobals;
 extern bot_t bots[32];
 extern bool b_observer_mode;
 extern bool b_botdontshoot;
@@ -126,12 +126,11 @@ extern int bot_chat_percent;
 
 // Ricochet specific
 // Powerups
-#define POW_TRIPLE (1<<0)
-#define POW_FAST   (1<<1)
-#define POW_HARD   (1<<2)
-#define POW_FREEZE (1<<3)
+#define POW_TRIPLE (1 << 0)
+#define POW_FAST (1 << 1)
+#define POW_HARD (1 << 2)
+#define POW_FREEZE (1 << 3)
 
 #include "bot_func.h"
 
 #endif // BOT_H
-
