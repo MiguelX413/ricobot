@@ -1,5 +1,6 @@
-// This is an open source non-commercial project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: http://www.viva64.com
+// This is an open source non-commercial project. Dear PVS-Studio, please check
+// it. PVS-Studio Static Code Analyzer for C, C++, C#, and Java:
+// http://www.viva64.com
 /*
 Ricobot (C) Copyright 2004, Wei Mingzhi
 All rights reserved.
@@ -8,11 +9,11 @@ Redistribution and use in source and binary forms with or without
 modification, are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer. 
+this list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
 this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution. 
+and/or other materials provided with the distribution.
 
 3. Neither the name of the author nor the names of its contributors may be
 used to endorse or promote products derived from this software without
@@ -42,159 +43,137 @@ void (*botMsgFunction)(void *, int) = nullptr;
 void (*botMsgEndFunction)(void *, int) = nullptr;
 int botMsgIndex;
 
-void pfnClientCommand(edict_t *pEdict, char *szFmt, ...)
-{
-   if (!(pEdict->v.flags & FL_FAKECLIENT))
-      RETURN_META(MRES_IGNORED);
-   RETURN_META(MRES_SUPERCEDE);
+void pfnClientCommand(edict_t *pEdict, char *szFmt, ...) {
+  if (!(pEdict->v.flags & FL_FAKECLIENT))
+    RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_SUPERCEDE);
 }
 
 void pfnMessageBegin(int msg_dest, int msg_type, const float *pOrigin,
-                     edict_t *ed)
-{
-   if (gpGlobals->deathmatch)
-   {
-      botMsgFunction = nullptr; // no msg function until known otherwise
-      botMsgIndex = UTIL_GetBotIndex(ed); // index of bot receiving message
+                     edict_t *ed) {
+  if (gpGlobals->deathmatch) {
+    botMsgFunction = nullptr;           // no msg function until known otherwise
+    botMsgIndex = UTIL_GetBotIndex(ed); // index of bot receiving message
 
-      if (msg_type == GET_USER_MSG_ID(PLID, "DeathMsg", nullptr))
-         botMsgFunction = BotClient_Ricochet_DeathMsg;
-      else if (msg_type == GET_USER_MSG_ID(PLID, "AmmoX", nullptr))
-         botMsgFunction = BotClient_Ricochet_AmmoX;
-      else if (msg_type == GET_USER_MSG_ID(PLID, "Powerup", nullptr))
-         botMsgFunction = BotClient_Ricochet_Powerup;
-   }
+    if (msg_type == GET_USER_MSG_ID(PLID, "DeathMsg", nullptr))
+      botMsgFunction = BotClient_Ricochet_DeathMsg;
+    else if (msg_type == GET_USER_MSG_ID(PLID, "AmmoX", nullptr))
+      botMsgFunction = BotClient_Ricochet_AmmoX;
+    else if (msg_type == GET_USER_MSG_ID(PLID, "Powerup", nullptr))
+      botMsgFunction = BotClient_Ricochet_Powerup;
+  }
 
-   RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_IGNORED);
 }
 
-void pfnMessageEnd()
-{
-   if (gpGlobals->deathmatch)
-   {
-      if (botMsgEndFunction)
-         (*botMsgEndFunction)(nullptr, botMsgIndex); // NULL indicated msg end
+void pfnMessageEnd() {
+  if (gpGlobals->deathmatch) {
+    if (botMsgEndFunction)
+      (*botMsgEndFunction)(nullptr, botMsgIndex); // NULL indicated msg end
 
-      // clear out the bot message function pointers...
-      botMsgFunction = nullptr;
-      botMsgEndFunction = nullptr;
-   }
+    // clear out the bot message function pointers...
+    botMsgFunction = nullptr;
+    botMsgEndFunction = nullptr;
+  }
 
-   RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_IGNORED);
 }
 
-void pfnWriteByte(int iValue)
-{
-   if (gpGlobals->deathmatch)
-   {
-      // if this message is for a bot, call the client message function...
-      if (botMsgFunction)
-         (*botMsgFunction)(static_cast<void *>(&iValue), botMsgIndex);
-   }
+void pfnWriteByte(int iValue) {
+  if (gpGlobals->deathmatch) {
+    // if this message is for a bot, call the client message function...
+    if (botMsgFunction)
+      (*botMsgFunction)(static_cast<void *>(&iValue), botMsgIndex);
+  }
 
-   RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_IGNORED);
 }
 
-void pfnWriteChar(int iValue)
-{
-   if (gpGlobals->deathmatch)
-   {
-      // if this message is for a bot, call the client message function...
-      if (botMsgFunction)
-         (*botMsgFunction)(static_cast<void *>(&iValue), botMsgIndex);
-   }
+void pfnWriteChar(int iValue) {
+  if (gpGlobals->deathmatch) {
+    // if this message is for a bot, call the client message function...
+    if (botMsgFunction)
+      (*botMsgFunction)(static_cast<void *>(&iValue), botMsgIndex);
+  }
 
-   RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_IGNORED);
 }
 
-void pfnWriteShort(int iValue)
-{
-   if (gpGlobals->deathmatch)
-   {
-      // if this message is for a bot, call the client message function...
-      if (botMsgFunction)
-         (*botMsgFunction)(static_cast<void *>(&iValue), botMsgIndex);
-   }
+void pfnWriteShort(int iValue) {
+  if (gpGlobals->deathmatch) {
+    // if this message is for a bot, call the client message function...
+    if (botMsgFunction)
+      (*botMsgFunction)(static_cast<void *>(&iValue), botMsgIndex);
+  }
 
-   RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_IGNORED);
 }
 
-void pfnWriteLong(int iValue)
-{
-   if (gpGlobals->deathmatch)
-   {
-      // if this message is for a bot, call the client message function...
-      if (botMsgFunction)
-         (*botMsgFunction)(static_cast<void *>(&iValue), botMsgIndex);
-   }
+void pfnWriteLong(int iValue) {
+  if (gpGlobals->deathmatch) {
+    // if this message is for a bot, call the client message function...
+    if (botMsgFunction)
+      (*botMsgFunction)(static_cast<void *>(&iValue), botMsgIndex);
+  }
 
-   RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_IGNORED);
 }
 
-void pfnWriteAngle(float flValue)
-{
-   if (gpGlobals->deathmatch)
-   {
-      // if this message is for a bot, call the client message function...
-      if (botMsgFunction)
-         (*botMsgFunction)(static_cast<void *>(&flValue), botMsgIndex);
-   }
+void pfnWriteAngle(float flValue) {
+  if (gpGlobals->deathmatch) {
+    // if this message is for a bot, call the client message function...
+    if (botMsgFunction)
+      (*botMsgFunction)(static_cast<void *>(&flValue), botMsgIndex);
+  }
 
-   RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_IGNORED);
 }
 
-void pfnWriteCoord(float flValue)
-{
-   if (gpGlobals->deathmatch)
-   {
-      // if this message is for a bot, call the client message function...
-      if (botMsgFunction)
-         (*botMsgFunction)(static_cast<void *>(&flValue), botMsgIndex);
-   }
+void pfnWriteCoord(float flValue) {
+  if (gpGlobals->deathmatch) {
+    // if this message is for a bot, call the client message function...
+    if (botMsgFunction)
+      (*botMsgFunction)(static_cast<void *>(&flValue), botMsgIndex);
+  }
 
-   RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_IGNORED);
 }
 
-void pfnWriteString(const char *sz)
-{
-   if (gpGlobals->deathmatch)
-   {
-      // if this message is for a bot, call the client message function...
-      if (botMsgFunction)
-         (*botMsgFunction)((void *)sz, botMsgIndex);
-   }
+void pfnWriteString(const char *sz) {
+  if (gpGlobals->deathmatch) {
+    // if this message is for a bot, call the client message function...
+    if (botMsgFunction)
+      (*botMsgFunction)((void *)sz, botMsgIndex);
+  }
 
-   RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_IGNORED);
 }
 
-void pfnWriteEntity(int iValue)
-{
-   if (gpGlobals->deathmatch)
-   {
-      // if this message is for a bot, call the client message function...
-      if (botMsgFunction)
-         (*botMsgFunction)(static_cast<void *>(&iValue), botMsgIndex);
-   }
+void pfnWriteEntity(int iValue) {
+  if (gpGlobals->deathmatch) {
+    // if this message is for a bot, call the client message function...
+    if (botMsgFunction)
+      (*botMsgFunction)(static_cast<void *>(&iValue), botMsgIndex);
+  }
 
-   RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_IGNORED);
 }
 
 C_DLLEXPORT int GetEngineFunctions(enginefuncs_t *pengfuncsFromEngine,
-                                   int *interfaceVersion)
-{
-   memset(pengfuncsFromEngine, 0, sizeof(enginefuncs_t));
+                                   int *interfaceVersion) {
+  memset(pengfuncsFromEngine, 0, sizeof(enginefuncs_t));
 
-   pengfuncsFromEngine->pfnClientCommand = pfnClientCommand;
-   pengfuncsFromEngine->pfnMessageBegin = pfnMessageBegin;
-   pengfuncsFromEngine->pfnMessageEnd = pfnMessageEnd;
-   pengfuncsFromEngine->pfnWriteByte = pfnWriteByte;
-   pengfuncsFromEngine->pfnWriteChar = pfnWriteChar;
-   pengfuncsFromEngine->pfnWriteShort = pfnWriteShort;
-   pengfuncsFromEngine->pfnWriteLong = pfnWriteLong;
-   pengfuncsFromEngine->pfnWriteAngle = pfnWriteAngle;
-   pengfuncsFromEngine->pfnWriteCoord = pfnWriteCoord;
-   pengfuncsFromEngine->pfnWriteString = pfnWriteString;
-   pengfuncsFromEngine->pfnWriteEntity = pfnWriteEntity;
+  pengfuncsFromEngine->pfnClientCommand = pfnClientCommand;
+  pengfuncsFromEngine->pfnMessageBegin = pfnMessageBegin;
+  pengfuncsFromEngine->pfnMessageEnd = pfnMessageEnd;
+  pengfuncsFromEngine->pfnWriteByte = pfnWriteByte;
+  pengfuncsFromEngine->pfnWriteChar = pfnWriteChar;
+  pengfuncsFromEngine->pfnWriteShort = pfnWriteShort;
+  pengfuncsFromEngine->pfnWriteLong = pfnWriteLong;
+  pengfuncsFromEngine->pfnWriteAngle = pfnWriteAngle;
+  pengfuncsFromEngine->pfnWriteCoord = pfnWriteCoord;
+  pengfuncsFromEngine->pfnWriteString = pfnWriteString;
+  pengfuncsFromEngine->pfnWriteEntity = pfnWriteEntity;
 
-   return TRUE;
+  return TRUE;
 }

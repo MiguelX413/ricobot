@@ -6,11 +6,11 @@ Redistribution and use in source and binary forms with or without
 modification, are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer. 
+this list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
 this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution. 
+and/or other materials provided with the distribution.
 
 3. Neither the name of the author nor the names of its contributors may be
 used to endorse or promote products derived from this software without
@@ -42,11 +42,13 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #include <array>
-#include <cstring>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <string>
 
+// Vendor headers depend on this include order.
+// clang-format off
 #include "extdll.h"
 #include "dllapi.h"
 #include "h_export.h"
@@ -54,61 +56,55 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "enginecallback.h"
 #include "cbase.h"
 #include "entity_state.h"
+// clang-format on
 
 inline constexpr int BOT_PITCH_SPEED = 30;
 inline constexpr int BOT_YAW_SPEED = 30;
 
-enum class RespawnState
-{
-   Unused,
-   Idle,
-   Pending,
-   InProgress
-};
+enum class RespawnState { Unused, Idle, Pending, InProgress };
 
 inline constexpr int BOT_SKIN_LEN = 32;
 inline constexpr int BOT_NAME_LEN = 32;
 
 inline constexpr int MAX_BOT_WHINE = 100;
 
-typedef struct
-{
-   bool is_used;
-   RespawnState respawn_state;
-   edict_t *pEdict;
-   bool need_to_initialize;
-   std::string name;
-   std::array<char, BOT_SKIN_LEN + 1> skin;
-   int bot_skill;
-   int not_started;
-   float kick_time;
-   float create_time;
+typedef struct {
+  bool is_used;
+  RespawnState respawn_state;
+  edict_t *pEdict;
+  bool need_to_initialize;
+  std::string name;
+  std::array<char, BOT_SKIN_LEN + 1> skin;
+  int bot_skill;
+  int not_started;
+  float kick_time;
+  float create_time;
 
-   //Fix by Cheeseh (RCBot)
-   //int msecnum;
-   //float msecdel;
-   //float msecval;
+  // Fix by Cheeseh (RCBot)
+  // int msecnum;
+  // float msecdel;
+  // float msecval;
 
-   float fUpdateTime;
-   float fLastRunPlayerMoveTime;
+  float fUpdateTime;
+  float fLastRunPlayerMoveTime;
 
-   float f_max_speed;
+  float f_max_speed;
 
-   edict_t *pBotEnemy;
-   float f_bot_see_enemy_time;
-   float f_bot_find_enemy_time;
-   edict_t *killer_edict;
-   bool b_bot_say_killed;
-   float f_bot_say_killed;
+  edict_t *pBotEnemy;
+  float f_bot_see_enemy_time;
+  float f_bot_find_enemy_time;
+  edict_t *killer_edict;
+  bool b_bot_say_killed;
+  float f_bot_say_killed;
 
-   float f_move_speed;
-   float f_sidemove_speed;
+  float f_move_speed;
+  float f_sidemove_speed;
 
-   int disc_number;
-   int m_iPowerups;
+  int disc_number;
+  int m_iPowerups;
 
-   Vector vecLookAt;
-   Vector vecTargetPos;
+  Vector vecLookAt;
+  Vector vecTargetPos;
 } bot_t;
 
 extern edict_t *listenserver_edict;

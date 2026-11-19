@@ -1,5 +1,6 @@
-// This is an open source non-commercial project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: http://www.viva64.com
+// This is an open source non-commercial project. Dear PVS-Studio, please check
+// it. PVS-Studio Static Code Analyzer for C, C++, C#, and Java:
+// http://www.viva64.com
 /*
 Ricobot (C) Copyright 2004, Wei Mingzhi
 All rights reserved.
@@ -8,11 +9,11 @@ Redistribution and use in source and binary forms with or without
 modification, are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer. 
+this list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
 this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution. 
+and/or other materials provided with the distribution.
 
 3. Neither the name of the author nor the names of its contributors may be
 used to endorse or promote products derived from this software without
@@ -42,9 +43,8 @@ enginefuncs_t g_engfuncs;
 globalvars_t *gpGlobals;
 
 void WINAPI GiveFnptrsToDll(enginefuncs_t *pengfuncsFromEngine,
-                            globalvars_t *pGlobals)
-{
-   // get the engine functions from the engine...
-   memcpy(&g_engfuncs, pengfuncsFromEngine, sizeof(enginefuncs_t));
-   gpGlobals = pGlobals;
+                            globalvars_t *pGlobals) {
+  // get the engine functions from the engine...
+  memcpy(&g_engfuncs, pengfuncsFromEngine, sizeof(enginefuncs_t));
+  gpGlobals = pGlobals;
 }

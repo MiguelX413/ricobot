@@ -6,11 +6,11 @@ Redistribution and use in source and binary forms with or without
 modification, are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer. 
+this list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
 this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution. 
+and/or other materials provided with the distribution.
 
 3. Neither the name of the author nor the names of its contributors may be
 used to endorse or promote products derived from this software without
@@ -68,7 +68,8 @@ bool FVisible(const Vector &vecOrigin, edict_t *pEdict);
 Vector Center(edict_t *pEdict);
 Vector GetGunPosition(edict_t *pEdict);
 Vector VecBModelOrigin(edict_t *pEdict);
-//void UTIL_ShowMenu( edict_t *pEdict, int slots, int displaytime, bool needmore, char *pText );
+// void UTIL_ShowMenu( edict_t *pEdict, int slots, int displaytime, bool
+// needmore, char *pText );
 void UTIL_BuildFileName(char *filename, char *arg1, char *arg2);
 void ClampAngle(float &angle);
 void ClampAngles(Vector &angles);

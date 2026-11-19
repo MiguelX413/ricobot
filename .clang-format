@@ -1,5 +1,1 @@
 BasedOnStyle: LLVM
-BreakBeforeBraces: Allman
-IndentWidth: 3
-SortIncludes: Never
-ReflowComments: Never

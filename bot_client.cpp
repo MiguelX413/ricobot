@@ -1,5 +1,6 @@
-// This is an open source non-commercial project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: http://www.viva64.com
+// This is an open source non-commercial project. Dear PVS-Studio, please check
+// it. PVS-Studio Static Code Analyzer for C, C++, C#, and Java:
+// http://www.viva64.com
 /*
 Ricobot (C) Copyright 2004, Wei Mingzhi
 All rights reserved.
@@ -8,11 +9,11 @@ Redistribution and use in source and binary forms with or without
 modification, are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer. 
+this list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
 this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution. 
+and/or other materials provided with the distribution.
 
 3. Neither the name of the author nor the names of its contributors may be
 used to endorse or promote products derived from this software without
@@ -39,58 +40,48 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bot.hpp"
 
 // This message gets sent when the bots get killed
-void BotClient_Ricochet_DeathMsg(void *p, int bot_index)
-{
-   static int state = 0;
-   static int killer_index;
-   static int victim_index;
-   static edict_t *victim_edict;
-   static int index;
+void BotClient_Ricochet_DeathMsg(void *p, int bot_index) {
+  static int state = 0;
+  static int killer_index;
+  static int victim_index;
+  static edict_t *victim_edict;
+  static int index;
 
-   if (state == 0)
-   {
-      state++;
-      killer_index = *static_cast<int *>(p); // ENTINDEX() of killer
-   }
-   else if (state == 1)
-   {
-      state++;
-      victim_index = *static_cast<int *>(p); // ENTINDEX() of victim
-   }
-   else if (state == 2)
-   {
-      state = 0;
+  if (state == 0) {
+    state++;
+    killer_index = *static_cast<int *>(p); // ENTINDEX() of killer
+  } else if (state == 1) {
+    state++;
+    victim_index = *static_cast<int *>(p); // ENTINDEX() of victim
+  } else if (state == 2) {
+    state = 0;
 
-      victim_edict = INDEXENT(victim_index);
-      index = UTIL_GetBotIndex(victim_edict);
+    victim_edict = INDEXENT(victim_index);
+    index = UTIL_GetBotIndex(victim_edict);
 
-      // is this message about a bot being killed?
-      if (index != -1)
-      {
-         // bot killed by world (worldspawn) or killed self?
-         if (killer_index == 0 || killer_index == victim_index)
-            bots[index].killer_edict = nullptr;
-         else // store edict of player that killed this bot...
-            bots[index].killer_edict = INDEXENT(killer_index);
-      }
-   }
+    // is this message about a bot being killed?
+    if (index != -1) {
+      // bot killed by world (worldspawn) or killed self?
+      if (killer_index == 0 || killer_index == victim_index)
+        bots[index].killer_edict = nullptr;
+      else // store edict of player that killed this bot...
+        bots[index].killer_edict = INDEXENT(killer_index);
+    }
+  }
 }
 
 // This message is sent whenever ammo amounts are adjusted (up or down).
-void BotClient_Ricochet_AmmoX(void *p, int bot_index)
-{
-   static int state = 0;
-   if (state == 0)
-      state++;
-   else if (state == 1)
-   {
-      state = 0;
-      bots[bot_index].disc_number = *static_cast<int *>(p); // store it away
-   }
+void BotClient_Ricochet_AmmoX(void *p, int bot_index) {
+  static int state = 0;
+  if (state == 0)
+    state++;
+  else if (state == 1) {
+    state = 0;
+    bots[bot_index].disc_number = *static_cast<int *>(p); // store it away
+  }
 }
 
 // This message is sent whenever a player gets or loses powerup(s).
-void BotClient_Ricochet_Powerup(void *p, int bot_index)
-{
-   bots[bot_index].m_iPowerups = *static_cast<int *>(p);
+void BotClient_Ricochet_Powerup(void *p, int bot_index) {
+  bots[bot_index].m_iPowerups = *static_cast<int *>(p);
 }

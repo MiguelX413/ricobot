@@ -1,5 +1,6 @@
-// This is an open source non-commercial project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: http://www.viva64.com
+// This is an open source non-commercial project. Dear PVS-Studio, please check
+// it. PVS-Studio Static Code Analyzer for C, C++, C#, and Java:
+// http://www.viva64.com
 /*
 Ricobot (C) Copyright 2004, Wei Mingzhi
 All rights reserved.
@@ -8,11 +9,11 @@ Redistribution and use in source and binary forms with or without
 modification, are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer. 
+this list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
 this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution. 
+and/or other materials provided with the distribution.
 
 3. Neither the name of the author nor the names of its contributors may be
 used to endorse or promote products derived from this software without
@@ -76,48 +77,45 @@ void ProcessBotCfgFile();
 
 void ServerCommand();
 
-void GameDLLInit()
-{
-   char filename[256];
+void GameDLLInit() {
+  char filename[256];
 
-   // Register server command
-   (*g_engfuncs.pfnAddServerCommand)("bot", ServerCommand);
+  // Register server command
+  (*g_engfuncs.pfnAddServerCommand)("bot", ServerCommand);
 
-   whine_count = 0;
+  whine_count = 0;
 
-   // initialize the bots array of structures...
-   for (auto &bot : bots)
-      bot = bot_t{};
+  // initialize the bots array of structures...
+  for (auto &bot : bots)
+    bot = bot_t{};
 
-   for (int &i : recent_bot_whine)
-      i = -1;
+  for (int &i : recent_bot_whine)
+    i = -1;
 
-   BotNameInit();
+  BotNameInit();
 
-   UTIL_BuildFileName(filename, "bot_whine.txt", nullptr);
+  UTIL_BuildFileName(filename, "bot_whine.txt", nullptr);
 
-   FILE *bfp = fopen(filename, "r");
+  FILE *bfp = fopen(filename, "r");
 
-   if (bfp != nullptr)
-   {
-      std::array<char, 80> buffer;
-      while (whine_count < MAX_BOT_WHINE &&
-             fgets(buffer.data(), buffer.size(), bfp) != nullptr)
-      {
-         std::string message = buffer.data();
-         if (!message.empty() && message.back() == '\n')
-            message.pop_back();
+  if (bfp != nullptr) {
+    std::array<char, 80> buffer;
+    while (whine_count < MAX_BOT_WHINE &&
+           fgets(buffer.data(), buffer.size(), bfp) != nullptr) {
+      std::string message = buffer.data();
+      if (!message.empty() && message.back() == '\n')
+        message.pop_back();
 
-         const auto player_placeholder = message.find("%n");
-         if (player_placeholder != std::string::npos)
-            message[player_placeholder + 1] = 's';
+      const auto player_placeholder = message.find("%n");
+      if (player_placeholder != std::string::npos)
+        message[player_placeholder + 1] = 's';
 
-         if (!message.empty())
-            bot_whine[whine_count++] = std::move(message);
-      }
+      if (!message.empty())
+        bot_whine[whine_count++] = std::move(message);
+    }
 
-      fclose(bfp);
-   }
+    fclose(bfp);
+  }
 }
 
 gamedll_funcs_t *gpGamedllFuncs;
@@ -140,687 +138,601 @@ plugin_info_t Plugin_info = {META_INTERFACE_VERSION,
 
 // Metamod requesting info about this plugin
 C_DLLEXPORT int Meta_Query(char *, plugin_info_t **pPlugInfo,
-                           mutil_funcs_t *pMetaUtilFuncs)
-{
-   *pPlugInfo = &Plugin_info;        // Give metamod our plugin_info struct
-   gpMetaUtilFuncs = pMetaUtilFuncs; // Get metamod utility function table.
-   return TRUE;
+                           mutil_funcs_t *pMetaUtilFuncs) {
+  *pPlugInfo = &Plugin_info;        // Give metamod our plugin_info struct
+  gpMetaUtilFuncs = pMetaUtilFuncs; // Get metamod utility function table.
+  return TRUE;
 }
 
 // Metamod attaching plugin to the server
 C_DLLEXPORT int Meta_Attach(PLUG_LOADTIME, META_FUNCTIONS *pFunctionTable,
                             meta_globals_t *pMGlobals,
-                            gamedll_funcs_t *pGamedllFuncs)
-{
-   if (!pMGlobals)
-   {
-      LOG_ERROR(PLID, "Meta_Attach called with null pMGlobals");
-      return FALSE;
-   }
+                            gamedll_funcs_t *pGamedllFuncs) {
+  if (!pMGlobals) {
+    LOG_ERROR(PLID, "Meta_Attach called with null pMGlobals");
+    return FALSE;
+  }
 
-   gpMetaGlobals = pMGlobals;
+  gpMetaGlobals = pMGlobals;
 
-   if (!pFunctionTable)
-   {
-      LOG_ERROR(PLID, "Meta_Attach called with null pFunctionTable");
-      return FALSE;
-   }
+  if (!pFunctionTable) {
+    LOG_ERROR(PLID, "Meta_Attach called with null pFunctionTable");
+    return FALSE;
+  }
 
-   memcpy(pFunctionTable, &gMetaFunctionTable, sizeof(META_FUNCTIONS));
-   gpGamedllFuncs = pGamedllFuncs;
+  memcpy(pFunctionTable, &gMetaFunctionTable, sizeof(META_FUNCTIONS));
+  gpGamedllFuncs = pGamedllFuncs;
 
-   GameDLLInit();
+  GameDLLInit();
 
-   return TRUE;
+  return TRUE;
 }
 
 // Metamod detaching plugin from the server
 C_DLLEXPORT int Meta_Detach(PLUG_LOADTIME, PL_UNLOAD_REASON) { return TRUE; }
 
-void ServerCommand()
-{
-   if (strcmp(CMD_ARGV(1), "addbot") == 0)
-   {
-      BotCreate(nullptr, CMD_ARGV(2), CMD_ARGV(3));
-      bot_check_time = gpGlobals->time + 5.0f;
-   }
-   else if (strcmp(CMD_ARGV(1), "min_bots") == 0)
-   {
-      min_bots = atoi(CMD_ARGV(2));
+void ServerCommand() {
+  if (strcmp(CMD_ARGV(1), "addbot") == 0) {
+    BotCreate(nullptr, CMD_ARGV(2), CMD_ARGV(3));
+    bot_check_time = gpGlobals->time + 5.0f;
+  } else if (strcmp(CMD_ARGV(1), "min_bots") == 0) {
+    min_bots = atoi(CMD_ARGV(2));
 
-      if ((min_bots < 0) || (min_bots > 31))
-         min_bots = 1;
+    if ((min_bots < 0) || (min_bots > 31))
+      min_bots = 1;
 
-      printf("min_bots set to %d\n", min_bots);
-   }
-   else if (strcmp(CMD_ARGV(1), "max_bots") == 0)
-   {
-      max_bots = atoi(CMD_ARGV(2));
+    printf("min_bots set to %d\n", min_bots);
+  } else if (strcmp(CMD_ARGV(1), "max_bots") == 0) {
+    max_bots = atoi(CMD_ARGV(2));
 
-      if ((max_bots < 0) || (max_bots > 31))
-         max_bots = 1;
+    if ((max_bots < 0) || (max_bots > 31))
+      max_bots = 1;
 
-      printf("max_bots set to %d\n", max_bots);
-   }
+    printf("max_bots set to %d\n", max_bots);
+  }
 }
 
-int DispatchSpawn(edict_t *pent)
-{
-   if (gpGlobals->deathmatch)
-   {
-      const char *pClassname = const_cast<char *>(STRING(pent->v.classname));
+int DispatchSpawn(edict_t *pent) {
+  if (gpGlobals->deathmatch) {
+    const char *pClassname = const_cast<char *>(STRING(pent->v.classname));
 
-      if (strcmp(pClassname, "worldspawn") == 0)
-      {
-         g_GameRules = TRUE;
+    if (strcmp(pClassname, "worldspawn") == 0) {
+      g_GameRules = TRUE;
 
-         bot_cfg_pause_time = 0.0f;
-         respawn_time = 0.0f;
-         spawn_time_reset = FALSE;
+      bot_cfg_pause_time = 0.0f;
+      respawn_time = 0.0f;
+      spawn_time_reset = FALSE;
 
-         prev_num_bots = num_bots;
-         num_bots = 0;
+      prev_num_bots = num_bots;
+      num_bots = 0;
 
-         bot_check_time = gpGlobals->time + 30.0f;
-      }
-   }
+      bot_check_time = gpGlobals->time + 30.0f;
+    }
+  }
 
-   RETURN_META_VALUE(MRES_IGNORED, 0);
+  RETURN_META_VALUE(MRES_IGNORED, 0);
 }
 
 BOOL ClientConnect(edict_t *pEntity, const char *pszName,
-                   const char *pszAddress, char szRejectReason[128])
-{
-   if (gpGlobals->deathmatch)
-   {
-      // check if this client is the listen server client
-      if (strcmp(pszAddress, "loopback") == 0)
-         listenserver_edict =
-             pEntity; // save the edict of the listen server client...
+                   const char *pszAddress, char szRejectReason[128]) {
+  if (gpGlobals->deathmatch) {
+    // check if this client is the listen server client
+    if (strcmp(pszAddress, "loopback") == 0)
+      listenserver_edict =
+          pEntity; // save the edict of the listen server client...
 
-      // check if this is NOT a bot joining the server...
-      if (strcmp(pszAddress, "127.0.0.1") != 0)
-      {
-         int count = 0;
-         int i;
-         // don't try to add bots for 60 seconds, give client time to get added
-         bot_check_time = gpGlobals->time + 60.0f;
+    // check if this is NOT a bot joining the server...
+    if (strcmp(pszAddress, "127.0.0.1") != 0) {
+      int count = 0;
+      int i;
+      // don't try to add bots for 60 seconds, give client time to get added
+      bot_check_time = gpGlobals->time + 60.0f;
 
-         for (i = 0; i < 32; i++)
-         {
-            if (bots[i].is_used) // count the number of bots in use
-               count++;
-         }
-
-         // if there are currently more than the minimum number of bots running
-         // then kick one of the bots off the server...
-         if (count > min_bots && min_bots != -1)
-         {
-            for (i = 0; i < 32; i++)
-            {
-               if (bots[i].is_used) // is this slot used?
-               {
-                  char cmd[80];
-                  sprintf(cmd, "kick \"%s\"\n",
-                          STRING(bots[i].pEdict->v.netname));
-                  SERVER_COMMAND(cmd); // kick the bot using (kick "name")
-                  break;
-               }
-            }
-         }
+      for (i = 0; i < 32; i++) {
+        if (bots[i].is_used) // count the number of bots in use
+          count++;
       }
-   }
 
-   RETURN_META_VALUE(MRES_IGNORED, 0);
-}
-
-void ClientDisconnect(edict_t *pEntity)
-{
-   if (gpGlobals->deathmatch)
-   {
-      for (bot_t &bot : bots)
-      {
-         if (bot.pEdict == pEntity)
-         {
-            // someone kicked this bot off of the server...
-            bot.is_used = FALSE;             // this slot is now free to use
-            bot.kick_time = gpGlobals->time; // save the kicked time
+      // if there are currently more than the minimum number of bots running
+      // then kick one of the bots off the server...
+      if (count > min_bots && min_bots != -1) {
+        for (i = 0; i < 32; i++) {
+          if (bots[i].is_used) // is this slot used?
+          {
+            char cmd[80];
+            sprintf(cmd, "kick \"%s\"\n", STRING(bots[i].pEdict->v.netname));
+            SERVER_COMMAND(cmd); // kick the bot using (kick "name")
             break;
-         }
+          }
+        }
       }
-   }
+    }
+  }
 
-   RETURN_META(MRES_IGNORED);
+  RETURN_META_VALUE(MRES_IGNORED, 0);
 }
 
-void ClientCommand(edict_t *pEntity)
-{
-   // only allow custom commands if deathmatch mode and NOT dedicated server and
-   // client sending command is the listen server client...
-
-   if ((gpGlobals->deathmatch) && (!IS_DEDICATED_SERVER()) &&
-       (pEntity == listenserver_edict))
-   {
-      const char *pcmd = CMD_ARGV(0);
-      const char *arg1 = CMD_ARGV(1);
-      const char *arg2 = CMD_ARGV(2);
-      char msg[80];
-
-      if (FStrEq(pcmd, "addbot"))
-      {
-         BotCreate(pEntity, arg1, arg2);
-
-         bot_check_time = gpGlobals->time + 5.0f;
-
-         RETURN_META(MRES_SUPERCEDE);
+void ClientDisconnect(edict_t *pEntity) {
+  if (gpGlobals->deathmatch) {
+    for (bot_t &bot : bots) {
+      if (bot.pEdict == pEntity) {
+        // someone kicked this bot off of the server...
+        bot.is_used = FALSE;             // this slot is now free to use
+        bot.kick_time = gpGlobals->time; // save the kicked time
+        break;
       }
-      else if (FStrEq(pcmd, "observer"))
-      {
-         if ((arg1 != nullptr) && (*arg1 != 0))
-         {
-            const int temp = atoi(arg1);
-            if (temp)
-               b_observer_mode = TRUE;
-            else
-               b_observer_mode = FALSE;
-         }
+    }
+  }
 
-         if (b_observer_mode)
-            ClientPrint(pEntity, HUD_PRINTNOTIFY, "observer mode ENABLED\n");
-         else
-            ClientPrint(pEntity, HUD_PRINTNOTIFY, "observer mode DISABLED\n");
-
-         RETURN_META(MRES_SUPERCEDE);
-      }
-      else if (FStrEq(pcmd, "botskill"))
-      {
-         if ((arg1 != nullptr) && (*arg1 != 0))
-         {
-            const int temp = atoi(arg1);
-
-            if (temp < 1 || temp > 5)
-               ClientPrint(pEntity, HUD_PRINTNOTIFY,
-                           "invalid botskill value!\n");
-            else
-               default_bot_skill = temp;
-         }
-
-         snprintf(msg, sizeof(msg), "botskill is %d\n", default_bot_skill);
-         ClientPrint(pEntity, HUD_PRINTNOTIFY, msg);
-
-         RETURN_META(MRES_SUPERCEDE);
-      }
-      else if (FStrEq(pcmd, "botdontshoot"))
-      {
-         if ((arg1 != nullptr) && (*arg1 != 0))
-         {
-            const int temp = atoi(arg1);
-            if (temp)
-               b_botdontshoot = TRUE;
-            else
-               b_botdontshoot = FALSE;
-         }
-
-         if (b_botdontshoot)
-            ClientPrint(pEntity, HUD_PRINTNOTIFY, "botdontshoot ENABLED\n");
-         else
-            ClientPrint(pEntity, HUD_PRINTNOTIFY, "botdontshoot DISABLED\n");
-
-         RETURN_META(MRES_SUPERCEDE);
-      }
-      else if (FStrEq(pcmd, "bot_chat_percent"))
-      {
-         if ((arg1 != nullptr) && (*arg1 != 0))
-         {
-            const int temp = atoi(arg1);
-
-            if ((temp < 0) || (temp > 100))
-               ClientPrint(pEntity, HUD_PRINTNOTIFY,
-                           "invalid bot_chat_percent value!\n");
-            else
-               bot_chat_percent = temp;
-         }
-
-         snprintf(msg, sizeof(msg), "bot_chat_percent is %d\n",
-                  bot_chat_percent);
-         ClientPrint(pEntity, HUD_PRINTNOTIFY, msg);
-
-         RETURN_META(MRES_SUPERCEDE);
-      }
-   }
-
-   RETURN_META(MRES_IGNORED);
+  RETURN_META(MRES_IGNORED);
 }
 
-void StartFrame()
-{
-   if (gpGlobals->deathmatch)
-   {
-      static int i, index, bot_index;
-      static float previous_time = -1.0f;
+void ClientCommand(edict_t *pEntity) {
+  // only allow custom commands if deathmatch mode and NOT dedicated server and
+  // client sending command is the listen server client...
 
-      int count;
+  if ((gpGlobals->deathmatch) && (!IS_DEDICATED_SERVER()) &&
+      (pEntity == listenserver_edict)) {
+    const char *pcmd = CMD_ARGV(0);
+    const char *arg1 = CMD_ARGV(1);
+    const char *arg2 = CMD_ARGV(2);
+    char msg[80];
 
-      // if a new map has started then (MUST BE FIRST IN StartFrame)...
-      if (gpGlobals->time + 0.1f < previous_time)
-      {
-         char filename[256];
-         char mapname[64];
+    if (FStrEq(pcmd, "addbot")) {
+      BotCreate(pEntity, arg1, arg2);
 
-         // check if mapname_bot.cfg file exists...
-         strcpy(mapname, STRING(gpGlobals->mapname));
-         strcat(mapname, "_bot.cfg");
+      bot_check_time = gpGlobals->time + 5.0f;
 
-         UTIL_BuildFileName(filename, "maps", mapname);
-
-         if ((bot_cfg_fp = fopen(filename, "r")) != nullptr)
-         {
-            for (index = 0; index < 32; index++)
-            {
-               bots[index].is_used = FALSE;
-               bots[index].respawn_state = RespawnState::Unused;
-               bots[index].kick_time = 0.0f;
-            }
-
-            if (IS_DEDICATED_SERVER())
-               bot_cfg_pause_time = gpGlobals->time + 5.0f;
-            else
-               bot_cfg_pause_time = gpGlobals->time + 20.0f;
-         }
-         else
-         {
-            count = 0;
-
-            // mark the bots as needing to be respawned...
-            for (index = 0; index < 32; index++)
-            {
-               if (count >= prev_num_bots)
-               {
-                  bots[index].is_used = FALSE;
-                  bots[index].respawn_state = RespawnState::Unused;
-                  bots[index].kick_time = 0.0f;
-               }
-
-               if (bots[index].is_used) // is this slot used?
-               {
-                  bots[index].respawn_state = RespawnState::Pending;
-                  count++;
-               }
-
-               // check for any bots that were very recently kicked...
-               if (bots[index].kick_time + 5.0f > previous_time)
-               {
-                  bots[index].respawn_state = RespawnState::Pending;
-                  count++;
-               }
-               else
-                  bots[index].kick_time =
-                      0.0f; // reset to prevent false spawns later
-            }
-
-            // set the respawn time
-            if (IS_DEDICATED_SERVER())
-               respawn_time = gpGlobals->time + 5.0f;
-            else
-               respawn_time = gpGlobals->time + 20.0f;
-         }
-
-         bot_check_time = gpGlobals->time + 30.0f;
+      RETURN_META(MRES_SUPERCEDE);
+    } else if (FStrEq(pcmd, "observer")) {
+      if ((arg1 != nullptr) && (*arg1 != 0)) {
+        const int temp = atoi(arg1);
+        if (temp)
+          b_observer_mode = TRUE;
+        else
+          b_observer_mode = FALSE;
       }
 
-      if (!IS_DEDICATED_SERVER())
-      {
-         if (listenserver_edict != nullptr && welcome_sent == FALSE &&
-             welcome_time < 1.0f)
-         {
-            // are they out of observer mode yet?
-            if (IsAlive(listenserver_edict))
-               welcome_time = gpGlobals->time + 5.0f; // welcome in 5 seconds
-         }
+      if (b_observer_mode)
+        ClientPrint(pEntity, HUD_PRINTNOTIFY, "observer mode ENABLED\n");
+      else
+        ClientPrint(pEntity, HUD_PRINTNOTIFY, "observer mode DISABLED\n");
 
-         if (welcome_time > 0.0f && welcome_time < gpGlobals->time &&
-             welcome_sent == FALSE)
-         {
-            // send the welcome message to this client
-            MESSAGE_BEGIN(MSG_ONE_UNRELIABLE, SVC_TEMPENTITY, nullptr,
-                          listenserver_edict);
-            WRITE_BYTE(TE_TEXTMESSAGE);
-            WRITE_BYTE(1);
-            WRITE_SHORT(-1);
-            WRITE_SHORT(0);
-            WRITE_BYTE(0);
-            WRITE_BYTE(RANDOM_LONG(10, 255));
-            WRITE_BYTE(RANDOM_LONG(10, 255));
-            WRITE_BYTE(RANDOM_LONG(10, 255));
-            WRITE_BYTE(1);
-            WRITE_BYTE(RANDOM_LONG(10, 255));
-            WRITE_BYTE(RANDOM_LONG(10, 255));
-            WRITE_BYTE(RANDOM_LONG(10, 255));
-            WRITE_BYTE(1);
-            WRITE_SHORT(256);
-            WRITE_SHORT(512);
-            WRITE_SHORT(512);
-            WRITE_STRING(welcome_msg);
-            MESSAGE_END();
-            SERVER_COMMAND("speak barney/guyresponsible\n");
-            welcome_sent = TRUE; // clear this so we only do it once
-         }
+      RETURN_META(MRES_SUPERCEDE);
+    } else if (FStrEq(pcmd, "botskill")) {
+      if ((arg1 != nullptr) && (*arg1 != 0)) {
+        const int temp = atoi(arg1);
+
+        if (temp < 1 || temp > 5)
+          ClientPrint(pEntity, HUD_PRINTNOTIFY, "invalid botskill value!\n");
+        else
+          default_bot_skill = temp;
       }
 
-      count = 0;
+      snprintf(msg, sizeof(msg), "botskill is %d\n", default_bot_skill);
+      ClientPrint(pEntity, HUD_PRINTNOTIFY, msg);
 
-      for (bot_index = 0; bot_index < gpGlobals->maxClients; bot_index++)
-      {
-         if (bots[bot_index].is_used && // is this slot used AND
-             bots[bot_index].respawn_state ==
-                 RespawnState::Idle) // not respawning
-         {
-            BotThink(&bots[bot_index]);
+      RETURN_META(MRES_SUPERCEDE);
+    } else if (FStrEq(pcmd, "botdontshoot")) {
+      if ((arg1 != nullptr) && (*arg1 != 0)) {
+        const int temp = atoi(arg1);
+        if (temp)
+          b_botdontshoot = TRUE;
+        else
+          b_botdontshoot = FALSE;
+      }
 
+      if (b_botdontshoot)
+        ClientPrint(pEntity, HUD_PRINTNOTIFY, "botdontshoot ENABLED\n");
+      else
+        ClientPrint(pEntity, HUD_PRINTNOTIFY, "botdontshoot DISABLED\n");
+
+      RETURN_META(MRES_SUPERCEDE);
+    } else if (FStrEq(pcmd, "bot_chat_percent")) {
+      if ((arg1 != nullptr) && (*arg1 != 0)) {
+        const int temp = atoi(arg1);
+
+        if ((temp < 0) || (temp > 100))
+          ClientPrint(pEntity, HUD_PRINTNOTIFY,
+                      "invalid bot_chat_percent value!\n");
+        else
+          bot_chat_percent = temp;
+      }
+
+      snprintf(msg, sizeof(msg), "bot_chat_percent is %d\n", bot_chat_percent);
+      ClientPrint(pEntity, HUD_PRINTNOTIFY, msg);
+
+      RETURN_META(MRES_SUPERCEDE);
+    }
+  }
+
+  RETURN_META(MRES_IGNORED);
+}
+
+void StartFrame() {
+  if (gpGlobals->deathmatch) {
+    static int i, index, bot_index;
+    static float previous_time = -1.0f;
+
+    int count;
+
+    // if a new map has started then (MUST BE FIRST IN StartFrame)...
+    if (gpGlobals->time + 0.1f < previous_time) {
+      char filename[256];
+      char mapname[64];
+
+      // check if mapname_bot.cfg file exists...
+      strcpy(mapname, STRING(gpGlobals->mapname));
+      strcat(mapname, "_bot.cfg");
+
+      UTIL_BuildFileName(filename, "maps", mapname);
+
+      if ((bot_cfg_fp = fopen(filename, "r")) != nullptr) {
+        for (index = 0; index < 32; index++) {
+          bots[index].is_used = FALSE;
+          bots[index].respawn_state = RespawnState::Unused;
+          bots[index].kick_time = 0.0f;
+        }
+
+        if (IS_DEDICATED_SERVER())
+          bot_cfg_pause_time = gpGlobals->time + 5.0f;
+        else
+          bot_cfg_pause_time = gpGlobals->time + 20.0f;
+      } else {
+        count = 0;
+
+        // mark the bots as needing to be respawned...
+        for (index = 0; index < 32; index++) {
+          if (count >= prev_num_bots) {
+            bots[index].is_used = FALSE;
+            bots[index].respawn_state = RespawnState::Unused;
+            bots[index].kick_time = 0.0f;
+          }
+
+          if (bots[index].is_used) // is this slot used?
+          {
+            bots[index].respawn_state = RespawnState::Pending;
             count++;
-         }
+          }
+
+          // check for any bots that were very recently kicked...
+          if (bots[index].kick_time + 5.0f > previous_time) {
+            bots[index].respawn_state = RespawnState::Pending;
+            count++;
+          } else
+            bots[index].kick_time = 0.0f; // reset to prevent false spawns later
+        }
+
+        // set the respawn time
+        if (IS_DEDICATED_SERVER())
+          respawn_time = gpGlobals->time + 5.0f;
+        else
+          respawn_time = gpGlobals->time + 20.0f;
       }
 
-      if (count > num_bots)
-         num_bots = count;
+      bot_check_time = gpGlobals->time + 30.0f;
+    }
 
-      // are we currently respawning bots and is it time to spawn one yet?
-      if (respawn_time > 1.0f && respawn_time <= gpGlobals->time)
+    if (!IS_DEDICATED_SERVER()) {
+      if (listenserver_edict != nullptr && welcome_sent == FALSE &&
+          welcome_time < 1.0f) {
+        // are they out of observer mode yet?
+        if (IsAlive(listenserver_edict))
+          welcome_time = gpGlobals->time + 5.0f; // welcome in 5 seconds
+      }
+
+      if (welcome_time > 0.0f && welcome_time < gpGlobals->time &&
+          welcome_sent == FALSE) {
+        // send the welcome message to this client
+        MESSAGE_BEGIN(MSG_ONE_UNRELIABLE, SVC_TEMPENTITY, nullptr,
+                      listenserver_edict);
+        WRITE_BYTE(TE_TEXTMESSAGE);
+        WRITE_BYTE(1);
+        WRITE_SHORT(-1);
+        WRITE_SHORT(0);
+        WRITE_BYTE(0);
+        WRITE_BYTE(RANDOM_LONG(10, 255));
+        WRITE_BYTE(RANDOM_LONG(10, 255));
+        WRITE_BYTE(RANDOM_LONG(10, 255));
+        WRITE_BYTE(1);
+        WRITE_BYTE(RANDOM_LONG(10, 255));
+        WRITE_BYTE(RANDOM_LONG(10, 255));
+        WRITE_BYTE(RANDOM_LONG(10, 255));
+        WRITE_BYTE(1);
+        WRITE_SHORT(256);
+        WRITE_SHORT(512);
+        WRITE_SHORT(512);
+        WRITE_STRING(welcome_msg);
+        MESSAGE_END();
+        SERVER_COMMAND("speak barney/guyresponsible\n");
+        welcome_sent = TRUE; // clear this so we only do it once
+      }
+    }
+
+    count = 0;
+
+    for (bot_index = 0; bot_index < gpGlobals->maxClients; bot_index++) {
+      if (bots[bot_index].is_used && // is this slot used AND
+          bots[bot_index].respawn_state == RespawnState::Idle) // not respawning
       {
-         index = 0;
+        BotThink(&bots[bot_index]);
 
-         // find bot needing to be respawned...
-         while (index < 32 &&
-                bots[index].respawn_state != RespawnState::Pending)
-            index++;
-
-         if (index < 32)
-         {
-            bots[index].respawn_state = RespawnState::InProgress;
-            bots[index].is_used = FALSE; // free up this slot
-
-            // respawn 1 bot then wait a while (otherwise engine crashes)
-            char c_skill[2];
-            sprintf(c_skill, "%d", bots[index].bot_skill);
-            BotCreate(nullptr, bots[index].name.c_str(), c_skill);
-
-            respawn_time = gpGlobals->time + 2.0f; // set next respawn time
-
-            bot_check_time = gpGlobals->time + 5.0f;
-         }
-         else
-            respawn_time = 0.0f;
+        count++;
       }
+    }
 
-      if (g_GameRules)
+    if (count > num_bots)
+      num_bots = count;
+
+    // are we currently respawning bots and is it time to spawn one yet?
+    if (respawn_time > 1.0f && respawn_time <= gpGlobals->time) {
+      index = 0;
+
+      // find bot needing to be respawned...
+      while (index < 32 && bots[index].respawn_state != RespawnState::Pending)
+        index++;
+
+      if (index < 32) {
+        bots[index].respawn_state = RespawnState::InProgress;
+        bots[index].is_used = FALSE; // free up this slot
+
+        // respawn 1 bot then wait a while (otherwise engine crashes)
+        char c_skill[2];
+        sprintf(c_skill, "%d", bots[index].bot_skill);
+        BotCreate(nullptr, bots[index].name.c_str(), c_skill);
+
+        respawn_time = gpGlobals->time + 2.0f; // set next respawn time
+
+        bot_check_time = gpGlobals->time + 5.0f;
+      } else
+        respawn_time = 0.0f;
+    }
+
+    if (g_GameRules) {
+      if (need_to_open_cfg) // have we open bot.cfg file yet?
       {
-         if (need_to_open_cfg) // have we open bot.cfg file yet?
-         {
-            char filename[256];
-            char mapname[64];
+        char filename[256];
+        char mapname[64];
 
-            need_to_open_cfg = FALSE; // only do this once!!!
+        need_to_open_cfg = FALSE; // only do this once!!!
 
-            // check if mapname_bot.cfg file exists...
+        // check if mapname_bot.cfg file exists...
 
-            strcpy(mapname, STRING(gpGlobals->mapname));
-            strcat(mapname, "_bot.cfg");
+        strcpy(mapname, STRING(gpGlobals->mapname));
+        strcat(mapname, "_bot.cfg");
 
-            UTIL_BuildFileName(filename, "maps", mapname);
+        UTIL_BuildFileName(filename, "maps", mapname);
 
-            if ((bot_cfg_fp = fopen(filename, "r")) == nullptr)
-            {
-               UTIL_BuildFileName(filename, "bot.cfg", nullptr);
-               bot_cfg_fp = fopen(filename, "r");
-            }
+        if ((bot_cfg_fp = fopen(filename, "r")) == nullptr) {
+          UTIL_BuildFileName(filename, "bot.cfg", nullptr);
+          bot_cfg_fp = fopen(filename, "r");
+        }
 
-            if (IS_DEDICATED_SERVER())
-               bot_cfg_pause_time = gpGlobals->time + 5.0f;
-            else
-               bot_cfg_pause_time = gpGlobals->time + 20.0f;
-         }
-
-         if (!IS_DEDICATED_SERVER() && !spawn_time_reset)
-         {
-            if (listenserver_edict != nullptr)
-            {
-               if (IsAlive(listenserver_edict))
-               {
-                  spawn_time_reset = TRUE;
-
-                  if (respawn_time >= 1.0f)
-                     respawn_time =
-                         std::fmin(respawn_time, gpGlobals->time + 1.0f);
-
-                  if (bot_cfg_pause_time >= 1.0f)
-                     bot_cfg_pause_time =
-                         std::fmin(bot_cfg_pause_time, gpGlobals->time + 1.0f);
-               }
-            }
-         }
-
-         if (bot_cfg_fp && bot_cfg_pause_time >= 1.0f &&
-             bot_cfg_pause_time <= gpGlobals->time)
-         {
-            // process bot.cfg file options...
-            ProcessBotCfgFile();
-         }
+        if (IS_DEDICATED_SERVER())
+          bot_cfg_pause_time = gpGlobals->time + 5.0f;
+        else
+          bot_cfg_pause_time = gpGlobals->time + 20.0f;
       }
 
-      // check if time to see if a bot needs to be created...
-      if (bot_check_time < gpGlobals->time)
-      {
-         count = 0;
-         bot_check_time = gpGlobals->time + 5.0f;
+      if (!IS_DEDICATED_SERVER() && !spawn_time_reset) {
+        if (listenserver_edict != nullptr) {
+          if (IsAlive(listenserver_edict)) {
+            spawn_time_reset = TRUE;
 
-         for (i = 1; i <= gpGlobals->maxClients; i++)
-         {
-            const edict_t *pPlayer = INDEXENT(i);
-            if (!FNullEnt(pPlayer) && !pPlayer->free &&
-                pPlayer->v.flags & (FL_CLIENT | FL_FAKECLIENT))
-               count++;
-         }
+            if (respawn_time >= 1.0f)
+              respawn_time = std::fmin(respawn_time, gpGlobals->time + 1.0f);
 
-         // if there are currently less than the maximum number of "players"
-         // then add another bot using the default skill level...
-         if (count < max_bots && max_bots != -1)
-            BotCreate(nullptr, nullptr, nullptr);
+            if (bot_cfg_pause_time >= 1.0f)
+              bot_cfg_pause_time =
+                  std::fmin(bot_cfg_pause_time, gpGlobals->time + 1.0f);
+          }
+        }
       }
 
-      previous_time = gpGlobals->time;
-   }
+      if (bot_cfg_fp && bot_cfg_pause_time >= 1.0f &&
+          bot_cfg_pause_time <= gpGlobals->time) {
+        // process bot.cfg file options...
+        ProcessBotCfgFile();
+      }
+    }
 
-   RETURN_META(MRES_IGNORED);
+    // check if time to see if a bot needs to be created...
+    if (bot_check_time < gpGlobals->time) {
+      count = 0;
+      bot_check_time = gpGlobals->time + 5.0f;
+
+      for (i = 1; i <= gpGlobals->maxClients; i++) {
+        const edict_t *pPlayer = INDEXENT(i);
+        if (!FNullEnt(pPlayer) && !pPlayer->free &&
+            pPlayer->v.flags & (FL_CLIENT | FL_FAKECLIENT))
+          count++;
+      }
+
+      // if there are currently less than the maximum number of "players"
+      // then add another bot using the default skill level...
+      if (count < max_bots && max_bots != -1)
+        BotCreate(nullptr, nullptr, nullptr);
+    }
+
+    previous_time = gpGlobals->time;
+  }
+
+  RETURN_META(MRES_IGNORED);
 }
 
 C_DLLEXPORT int GetEntityAPI(DLL_FUNCTIONS *pFunctionTable,
-                             int interfaceVersion)
-{
-   memset(pFunctionTable, 0, sizeof(DLL_FUNCTIONS));
+                             int interfaceVersion) {
+  memset(pFunctionTable, 0, sizeof(DLL_FUNCTIONS));
 
-   pFunctionTable->pfnSpawn = DispatchSpawn;
-   pFunctionTable->pfnClientConnect = ClientConnect;
-   pFunctionTable->pfnClientDisconnect = ClientDisconnect;
-   pFunctionTable->pfnClientCommand = ClientCommand;
-   pFunctionTable->pfnStartFrame = StartFrame;
+  pFunctionTable->pfnSpawn = DispatchSpawn;
+  pFunctionTable->pfnClientConnect = ClientConnect;
+  pFunctionTable->pfnClientDisconnect = ClientDisconnect;
+  pFunctionTable->pfnClientCommand = ClientCommand;
+  pFunctionTable->pfnStartFrame = StartFrame;
 
-   return TRUE;
+  return TRUE;
 }
 
-static std::optional<int> ParseConfigInt(const char *argument)
-{
-   if (argument == nullptr)
-      return std::nullopt;
+static std::optional<int> ParseConfigInt(const char *argument) {
+  if (argument == nullptr)
+    return std::nullopt;
 
-   char *end = nullptr;
-   errno = 0;
-   const long value = std::strtol(argument, &end, 10);
-   if (end == argument || *end != '\0' || errno == ERANGE ||
-       value < std::numeric_limits<int>::min() ||
-       value > std::numeric_limits<int>::max())
-      return std::nullopt;
+  char *end = nullptr;
+  errno = 0;
+  const long value = std::strtol(argument, &end, 10);
+  if (end == argument || *end != '\0' || errno == ERANGE ||
+      value < std::numeric_limits<int>::min() ||
+      value > std::numeric_limits<int>::max())
+    return std::nullopt;
 
-   return static_cast<int>(value);
+  return static_cast<int>(value);
 }
 
-void ProcessBotCfgFile()
-{
-   constexpr std::size_t config_line_capacity = 256;
-   std::array<char, config_line_capacity> cmd_line;
-   std::size_t cmd_index = 0;
-   bool line_too_long = false;
-   char *cmd, *arg1, *arg2;
+void ProcessBotCfgFile() {
+  constexpr std::size_t config_line_capacity = 256;
+  std::array<char, config_line_capacity> cmd_line;
+  std::size_t cmd_index = 0;
+  bool line_too_long = false;
+  char *cmd, *arg1, *arg2;
 
-   if (bot_cfg_pause_time > gpGlobals->time)
-      return;
+  if (bot_cfg_pause_time > gpGlobals->time)
+    return;
 
-   if (bot_cfg_fp == nullptr)
-      return;
+  if (bot_cfg_fp == nullptr)
+    return;
 
-   int ch = fgetc(bot_cfg_fp);
+  int ch = fgetc(bot_cfg_fp);
 
-   // skip any leading blanks
-   while (ch == ' ')
+  // skip any leading blanks
+  while (ch == ' ')
+    ch = fgetc(bot_cfg_fp);
+
+  while (ch != EOF && ch != '\r' && ch != '\n') {
+    if (ch == '\t') // convert tabs to spaces
+      ch = ' ';
+
+    if (cmd_index < cmd_line.size() - 1)
+      cmd_line[cmd_index++] = static_cast<char>(ch);
+    else
+      line_too_long = true;
+
+    ch = fgetc(bot_cfg_fp);
+
+    // skip multiple spaces in input file
+    while (cmd_index != 0 && cmd_line[cmd_index - 1] == ' ' && ch == ' ' &&
+           !line_too_long)
       ch = fgetc(bot_cfg_fp);
+  }
 
-   while (ch != EOF && ch != '\r' && ch != '\n')
-   {
-      if (ch == '\t') // convert tabs to spaces
-         ch = ' ';
+  if (ch == '\r') // is it a carriage return?
+  {
+    ch = fgetc(bot_cfg_fp); // skip the linefeed
+  }
 
-      if (cmd_index < cmd_line.size() - 1)
-         cmd_line[cmd_index++] = static_cast<char>(ch);
-      else
-         line_too_long = true;
+  // if reached end of file, then close it
+  if (ch == EOF) {
+    fclose(bot_cfg_fp);
 
-      ch = fgetc(bot_cfg_fp);
+    bot_cfg_fp = nullptr;
 
-      // skip multiple spaces in input file
-      while (cmd_index != 0 && cmd_line[cmd_index - 1] == ' ' && ch == ' ' &&
-             !line_too_long)
-         ch = fgetc(bot_cfg_fp);
-   }
+    bot_cfg_pause_time = 0.0f;
+  }
 
-   if (ch == '\r') // is it a carriage return?
-   {
-      ch = fgetc(bot_cfg_fp); // skip the linefeed
-   }
+  if (line_too_long)
+    return;
 
-   // if reached end of file, then close it
-   if (ch == EOF)
-   {
-      fclose(bot_cfg_fp);
+  cmd_line[cmd_index] = 0; // terminate the command line
+  static std::array<char, config_line_capacity + 1> server_cmd;
 
-      bot_cfg_fp = nullptr;
+  // copy the command line to a server command buffer...
+  snprintf(server_cmd.data(), server_cmd.size(), "%s\n", cmd_line.data());
 
-      bot_cfg_pause_time = 0.0f;
-   }
+  cmd_index = 0;
+  cmd = cmd_line.data();
+  arg1 = arg2 = nullptr;
 
-   if (line_too_long)
-      return;
+  // skip to blank or end of string...
+  while (cmd_line[cmd_index] != ' ' && cmd_line[cmd_index] != 0)
+    cmd_index++;
 
-   cmd_line[cmd_index] = 0; // terminate the command line
-   static std::array<char, config_line_capacity + 1> server_cmd;
+  if (cmd_line[cmd_index] == ' ') {
+    cmd_line[cmd_index++] = 0;
+    arg1 = &cmd_line[cmd_index];
 
-   // copy the command line to a server command buffer...
-   snprintf(server_cmd.data(), server_cmd.size(), "%s\n", cmd_line.data());
-
-   cmd_index = 0;
-   cmd = cmd_line.data();
-   arg1 = arg2 = nullptr;
-
-   // skip to blank or end of string...
-   while (cmd_line[cmd_index] != ' ' && cmd_line[cmd_index] != 0)
+    // skip to blank or end of string...
+    while (cmd_line[cmd_index] != ' ' && cmd_line[cmd_index] != 0)
       cmd_index++;
 
-   if (cmd_line[cmd_index] == ' ')
-   {
+    if (cmd_line[cmd_index] == ' ') {
       cmd_line[cmd_index++] = 0;
-      arg1 = &cmd_line[cmd_index];
+      arg2 = &cmd_line[cmd_index];
+    }
+  }
 
-      // skip to blank or end of string...
-      while (cmd_line[cmd_index] != ' ' && cmd_line[cmd_index] != 0)
-         cmd_index++;
+  if (cmd_line[0] == '#' || cmd_line[0] == 0)
+    return; // return if comment or blank line
 
-      if (cmd_line[cmd_index] == ' ')
-      {
-         cmd_line[cmd_index++] = 0;
-         arg2 = &cmd_line[cmd_index];
-      }
-   }
+  if (strcmp(cmd, "addbot") == 0) {
+    BotCreate(nullptr, arg1, arg2);
 
-   if (cmd_line[0] == '#' || cmd_line[0] == 0)
-      return; // return if comment or blank line
+    // have to delay here or engine gives "Tried to write to
+    // uninitialized sizebuf_t" error and crashes...
 
-   if (strcmp(cmd, "addbot") == 0)
-   {
-      BotCreate(nullptr, arg1, arg2);
+    bot_cfg_pause_time = gpGlobals->time + 2.0f;
+    bot_check_time = gpGlobals->time + 5.0f;
 
-      // have to delay here or engine gives "Tried to write to
-      // uninitialized sizebuf_t" error and crashes...
+    return;
+  }
 
-      bot_cfg_pause_time = gpGlobals->time + 2.0f;
-      bot_check_time = gpGlobals->time + 5.0f;
+  const auto value = ParseConfigInt(arg1);
 
+  if (strcmp(cmd, "botskill") == 0) {
+    if (value && *value >= 1 && *value <= 5)
+      default_bot_skill = *value;
+    return;
+  }
+
+  if (strcmp(cmd, "observer") == 0) {
+    if (value)
+      b_observer_mode = *value != 0;
+    return;
+  }
+
+  if (strcmp(cmd, "botdontshoot") == 0) {
+    if (value)
+      b_botdontshoot = *value != 0;
+    return;
+  }
+
+  if (strcmp(cmd, "min_bots") == 0) {
+    if (!value)
       return;
-   }
+    min_bots = *value < 0 || *value > 31 ? 1 : *value;
+    if (IS_DEDICATED_SERVER())
+      printf("min_bots set to %d\n", min_bots);
+    return;
+  }
 
-   const auto value = ParseConfigInt(arg1);
-
-   if (strcmp(cmd, "botskill") == 0)
-   {
-      if (value && *value >= 1 && *value <= 5)
-         default_bot_skill = *value;
+  if (strcmp(cmd, "max_bots") == 0) {
+    if (!value)
       return;
-   }
+    max_bots = *value < 0 || *value > 31 ? 1 : *value;
+    if (IS_DEDICATED_SERVER())
+      printf("max_bots set to %d\n", max_bots);
+    return;
+  }
 
-   if (strcmp(cmd, "observer") == 0)
-   {
-      if (value)
-         b_observer_mode = *value != 0;
-      return;
-   }
+  if (strcmp(cmd, "pause") == 0) {
+    if (value)
+      bot_cfg_pause_time = gpGlobals->time + *value;
+    return;
+  }
 
-   if (strcmp(cmd, "botdontshoot") == 0)
-   {
-      if (value)
-         b_botdontshoot = *value != 0;
-      return;
-   }
+  if (strcmp(cmd, "bot_chat_percent") == 0) {
+    if (value && *value >= 0 && *value <= 100)
+      bot_chat_percent = *value;
+    return;
+  }
 
-   if (strcmp(cmd, "min_bots") == 0)
-   {
-      if (!value)
-         return;
-      min_bots = *value < 0 || *value > 31 ? 1 : *value;
-      if (IS_DEDICATED_SERVER())
-         printf("min_bots set to %d\n", min_bots);
-      return;
-   }
-
-   if (strcmp(cmd, "max_bots") == 0)
-   {
-      if (!value)
-         return;
-      max_bots = *value < 0 || *value > 31 ? 1 : *value;
-      if (IS_DEDICATED_SERVER())
-         printf("max_bots set to %d\n", max_bots);
-      return;
-   }
-
-   if (strcmp(cmd, "pause") == 0)
-   {
-      if (value)
-         bot_cfg_pause_time = gpGlobals->time + *value;
-      return;
-   }
-
-   if (strcmp(cmd, "bot_chat_percent") == 0)
-   {
-      if (value && *value >= 0 && *value <= 100)
-         bot_chat_percent = *value;
-      return;
-   }
-
-   SERVER_COMMAND(server_cmd.data());
+  SERVER_COMMAND(server_cmd.data());
 }
