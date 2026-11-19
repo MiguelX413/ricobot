@@ -38,12 +38,13 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
 #include <algorithm>
+#include <iterator>
 #include <string_view>
 
 #include "bot.hpp"
 #include "file_handle.hpp"
 
-bot_t bots[32]; // max of 32 bots in a game
+bot_t bots[BOT_CAPACITY];
 bool b_observer_mode = false;
 bool b_botdontshoot = false;
 int bot_chat_percent = 10;
@@ -111,9 +112,9 @@ static std::string BotPickName() {
   int attempts = 0;
 
   // see if a name exists from a kicked bot (if so, reuse it)
-  for (index = 0; index < 32; index++) {
-    if (bots[index].is_used == false && !bots[index].name.empty())
-      return bots[index].name;
+  for (const auto &bot : bots) {
+    if (bot.is_used == false && !bot.name.empty())
+      return bot.name;
   }
 
   int name_index = RANDOM_LONG(1, number_names) - 1; // zero based
@@ -180,10 +181,10 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
     char ptr[128]; // allocate space for message from ClientConnect
 
     int index = 0;
-    while (index < 32 && bots[index].is_used)
+    while (index < std::ssize(bots) && bots[index].is_used)
       index++;
 
-    if (index == 32) {
+    if (index == std::ssize(bots)) {
       ClientPrint(pPlayer, HUD_PRINTNOTIFY, "Can't create bot!\n");
       return;
     }

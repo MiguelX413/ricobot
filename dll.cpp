@@ -40,6 +40,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 #include <cerrno>
 #include <cstdlib>
+#include <iterator>
 #include <limits>
 #include <optional>
 #include <utility>
@@ -232,7 +233,7 @@ BOOL ClientConnect(edict_t *pEntity, const char *pszName,
       // don't try to add bots for 60 seconds, give client time to get added
       bot_check_time = gpGlobals->time + 60.0f;
 
-      for (i = 0; i < 32; i++) {
+      for (i = 0; i < std::ssize(bots); i++) {
         if (bots[i].is_used) // count the number of bots in use
           count++;
       }
@@ -240,7 +241,7 @@ BOOL ClientConnect(edict_t *pEntity, const char *pszName,
       // if there are currently more than the minimum number of bots running
       // then kick one of the bots off the server...
       if (count > min_bots && min_bots != -1) {
-        for (i = 0; i < 32; i++) {
+        for (i = 0; i < std::ssize(bots); i++) {
           if (bots[i].is_used) // is this slot used?
           {
             char cmd[80];
@@ -364,7 +365,7 @@ static FileHandle OpenMapConfig() {
 
 void StartFrame() {
   if (gpGlobals->deathmatch) {
-    static int i, index, bot_index;
+    static int i, index;
     static float previous_time = -1.0f;
 
     int count;
@@ -374,7 +375,7 @@ void StartFrame() {
       bot_cfg_fp = OpenMapConfig();
 
       if (bot_cfg_fp != nullptr) {
-        for (index = 0; index < 32; index++) {
+        for (index = 0; index < std::ssize(bots); index++) {
           bots[index].is_used = false;
           bots[index].respawn_state = RespawnState::Unused;
           bots[index].kick_time = 0.0f;
@@ -388,7 +389,7 @@ void StartFrame() {
         count = 0;
 
         // mark the bots as needing to be respawned...
-        for (index = 0; index < 32; index++) {
+        for (index = 0; index < std::ssize(bots); index++) {
           if (count >= prev_num_bots) {
             bots[index].is_used = false;
             bots[index].respawn_state = RespawnState::Unused;
@@ -458,11 +459,9 @@ void StartFrame() {
 
     count = 0;
 
-    for (bot_index = 0; bot_index < gpGlobals->maxClients; bot_index++) {
-      if (bots[bot_index].is_used && // is this slot used AND
-          bots[bot_index].respawn_state == RespawnState::Idle) // not respawning
-      {
-        BotThink(&bots[bot_index]);
+    for (auto &bot : bots) {
+      if (bot.is_used && bot.respawn_state == RespawnState::Idle) {
+        BotThink(&bot);
 
         count++;
       }
@@ -476,10 +475,11 @@ void StartFrame() {
       index = 0;
 
       // find bot needing to be respawned...
-      while (index < 32 && bots[index].respawn_state != RespawnState::Pending)
+      while (index < std::ssize(bots) &&
+             bots[index].respawn_state != RespawnState::Pending)
         index++;
 
-      if (index < 32) {
+      if (index < std::ssize(bots)) {
         bots[index].respawn_state = RespawnState::InProgress;
         bots[index].is_used = false; // free up this slot
 

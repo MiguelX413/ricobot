@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <iterator>
 
 #include "bot.hpp"
 
@@ -179,7 +180,7 @@ edict_t *DBG_EntOfVars(const entvars_t *pev) {
 #endif // DEBUG
 
 int UTIL_GetBotIndex(edict_t *pEdict) {
-  for (int index = 0; index < 32; index++) {
+  for (int index = 0; index < std::ssize(bots); index++) {
     if (bots[index].pEdict == pEdict) {
       return index;
     }
@@ -189,18 +190,8 @@ int UTIL_GetBotIndex(edict_t *pEdict) {
 }
 
 bot_t *UTIL_GetBotPointer(edict_t *pEdict) {
-  int index;
-
-  for (index = 0; index < 32; index++) {
-    if (bots[index].pEdict == pEdict) {
-      break;
-    }
-  }
-
-  if (index < 32)
-    return (&bots[index]);
-
-  return nullptr; // return NULL if edict is not a bot
+  const int index = UTIL_GetBotIndex(pEdict);
+  return index >= 0 ? &bots[index] : nullptr;
 }
 
 bool IsAlive(edict_t *pEdict) {

@@ -44,6 +44,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <string>
 
@@ -115,11 +116,11 @@ extern int whine_count;
 
 extern int recent_bot_whine[5];
 
-extern bot_t bots[32];
+inline constexpr std::size_t BOT_CAPACITY = 32;
+extern bot_t bots[BOT_CAPACITY];
 
 extern enginefuncs_t g_engfuncs;
 extern globalvars_t *gpGlobals;
-extern bot_t bots[32];
 extern bool b_observer_mode;
 extern bool b_botdontshoot;
 extern int bot_chat_percent;
