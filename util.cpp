@@ -18,7 +18,14 @@
 // util.cpp
 //
 
+#include <cstdio>
+
 #include "bot.hpp"
+
+// Use the C++ runtime's bounded formatter on Windows too.
+#ifdef snprintf
+#undef snprintf
+#endif
 
 int gmsgTextMsg = 0;
 int gmsgSayText = 0;
@@ -120,32 +127,27 @@ void UTIL_SayText(const char *pText, edict_t *pEdict)
 void UTIL_HostSay(edict_t *pEntity, char *message)
 {
    char text[128];
-   char *pc;
+   if (message == nullptr)
+      return;
 
-   // make sure the text has content
-   for (pc = message; pc != nullptr && *pc != 0; pc++)
+   const char *content = message;
+   while (*content != '\0')
    {
-      if (isprint(*pc) && !isspace(*pc))
-      {
-         pc =
-             nullptr; // we've found an alphanumeric character,  so text is valid
+      const auto character = static_cast<unsigned char>(*content);
+      if (std::isprint(character) && !std::isspace(character))
          break;
-      }
+      ++content;
    }
+   if (*content == '\0')
+      return;
 
-   if (pc != nullptr)
-      return; // no character found, so say nothing
-
-   // turn on color set 2  (color on,  no sound)
-   snprintf(text, sizeof(text), "%c%s: ", 2, STRING(pEntity->v.netname));
-
-   const unsigned int j =
-       sizeof(text) - 2 - strlen(text); // -2 for /n and null terminator
-   if (static_cast<int>(strlen(message)) > j)
-      message[j] = 0;
-
-   strcat(text, message);
-   strcat(text, "\n");
+   // Reserve room for the newline and terminator, even with a long name.
+   std::snprintf(text, sizeof(text) - 1, "%c%s: ", 2,
+                 STRING(pEntity->v.netname));
+   const auto prefix_length = std::strlen(text);
+   const auto remaining = sizeof(text) - prefix_length;
+   std::snprintf(text + prefix_length, remaining, "%.*s\n",
+                 static_cast<int>(remaining - 2), message);
 
    // loop through all players
    // Start with the first player.

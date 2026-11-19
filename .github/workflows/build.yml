@@ -56,19 +56,11 @@ jobs:
           apt_cache="$RUNNER_TEMP/ricobot-apt"
           mkdir -p "$apt_cache/partial"
 
-          # Use Ubuntu's primary archive for the multilib packages.
-          apt_sources="$RUNNER_TEMP/ricobot-ubuntu.list"
-          . /etc/os-release
-          printf 'deb https://archive.ubuntu.com/ubuntu %s main universe\n' \
-            "$VERSION_CODENAME" "$VERSION_CODENAME-updates" > "$apt_sources"
-          printf 'deb https://security.ubuntu.com/ubuntu %s-security main universe\n' \
-            "$VERSION_CODENAME" >> "$apt_sources"
+          # Keep the runner's Ubuntu mirror fallback and skip unrelated repositories.
           apt_options=(
-            -o "Dir::Etc::sourcelist=$apt_sources"
+            -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources
             -o Dir::Etc::sourceparts=-
             -o "Dir::Cache::archives=$apt_cache"
-            -o Acquire::Retries=1
-            -o Acquire::https::Timeout=15
           )
           echo "::group::Refresh Ubuntu package indexes"
           sudo apt-get "${apt_options[@]}" update --error-on=any

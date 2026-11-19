@@ -36,6 +36,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // dll.cpp
 //
 
+#include <cerrno>
+#include <cstdlib>
+#include <limits>
+#include <optional>
+
 #include "bot.hpp"
 
 char welcome_msg[] = "Welcome to Ricobot by Wei Mingzhi\n"
@@ -651,22 +656,34 @@ C_DLLEXPORT int GetEntityAPI(DLL_FUNCTIONS *pFunctionTable,
    return TRUE;
 }
 
+static std::optional<int> ParseConfigInt(const char *argument)
+{
+   if (argument == nullptr)
+      return std::nullopt;
+
+   char *end = nullptr;
+   errno = 0;
+   const long value = std::strtol(argument, &end, 10);
+   if (end == argument || *end != '\0' || errno == ERANGE ||
+       value < std::numeric_limits<int>::min() ||
+       value > std::numeric_limits<int>::max())
+      return std::nullopt;
+
+   return static_cast<int>(value);
+}
+
 void ProcessBotCfgFile()
 {
    char cmd_line[256];
-   int cmd_index;
-   static char server_cmd[80];
+   std::size_t cmd_index = 0;
+   bool line_too_long = false;
    char *cmd, *arg1, *arg2;
-   char msg[80];
 
    if (bot_cfg_pause_time > gpGlobals->time)
       return;
 
    if (bot_cfg_fp == nullptr)
       return;
-
-   cmd_index = 0;
-   cmd_line[cmd_index] = 0;
 
    int ch = fgetc(bot_cfg_fp);
 
@@ -679,15 +696,17 @@ void ProcessBotCfgFile()
       if (ch == '\t') // convert tabs to spaces
          ch = ' ';
 
-      cmd_line[cmd_index] = ch;
+      if (cmd_index < sizeof(cmd_line) - 1)
+         cmd_line[cmd_index++] = static_cast<char>(ch);
+      else
+         line_too_long = true;
 
       ch = fgetc(bot_cfg_fp);
 
       // skip multiple spaces in input file
-      while (cmd_line[cmd_index] == ' ' && ch == ' ')
+      while (cmd_index != 0 && cmd_line[cmd_index - 1] == ' ' && ch == ' ' &&
+             !line_too_long)
          ch = fgetc(bot_cfg_fp);
-
-      cmd_index++;
    }
 
    if (ch == '\r') // is it a carriage return?
@@ -705,7 +724,11 @@ void ProcessBotCfgFile()
       bot_cfg_pause_time = 0.0f;
    }
 
+   if (line_too_long)
+      return;
+
    cmd_line[cmd_index] = 0; // terminate the command line
+   static char server_cmd[sizeof(cmd_line) + 1];
 
    // copy the command line to a server command buffer...
    snprintf(server_cmd, sizeof(server_cmd), "%s\n", cmd_line);
@@ -750,90 +773,60 @@ void ProcessBotCfgFile()
       return;
    }
 
+   const auto value = ParseConfigInt(arg1);
+
    if (strcmp(cmd, "botskill") == 0)
    {
-      if (arg1 != nullptr &&
-          arg1[0] !=
-              '\0') // Check if arg1 is not a null pointer and not an empty string
-      {
-         const int temp = std::atoi(arg1);
-
-         if (temp >= 1 && temp <= 5)
-            default_bot_skill = temp; // set default bot skill level
-      }
-
+      if (value && *value >= 1 && *value <= 5)
+         default_bot_skill = *value;
       return;
    }
 
    if (strcmp(cmd, "observer") == 0)
    {
-      const int temp = std::atoi(arg1);
-
-      if (temp)
-         b_observer_mode = TRUE;
-      else
-         b_observer_mode = FALSE;
-
+      if (value)
+         b_observer_mode = *value != 0;
       return;
    }
 
    if (strcmp(cmd, "botdontshoot") == 0)
    {
-      const int temp = std::atoi(arg1);
-
-      if (temp)
-         b_botdontshoot = TRUE;
-      else
-         b_botdontshoot = FALSE;
-
+      if (value)
+         b_botdontshoot = *value != 0;
       return;
    }
 
    if (strcmp(cmd, "min_bots") == 0)
    {
-      min_bots = std::atoi(arg1);
-
-      if (min_bots < 0 || min_bots > 31)
-         min_bots = 1;
-
+      if (!value)
+         return;
+      min_bots = *value < 0 || *value > 31 ? 1 : *value;
       if (IS_DEDICATED_SERVER())
-      {
-         snprintf(msg, sizeof(msg), "min_bots set to %d\n", min_bots);
-         printf("%s", msg); // Corrected printf call
-      }
-
+         printf("min_bots set to %d\n", min_bots);
       return;
    }
 
    if (strcmp(cmd, "max_bots") == 0)
    {
-      max_bots = std::atoi(arg1);
-
-      if (max_bots < 0 || max_bots > 31)
-         max_bots = 1;
-
+      if (!value)
+         return;
+      max_bots = *value < 0 || *value > 31 ? 1 : *value;
       if (IS_DEDICATED_SERVER())
-      {
-         snprintf(msg, sizeof(msg), "max_bots set to %d\n", max_bots);
-         printf("%s", msg); // Corrected printf call
-      }
-
+         printf("max_bots set to %d\n", max_bots);
       return;
    }
 
    if (strcmp(cmd, "pause") == 0)
    {
-      bot_cfg_pause_time = gpGlobals->time + std::atoi(arg1);
+      if (value)
+         bot_cfg_pause_time = gpGlobals->time + *value;
       return;
    }
 
    if (strcmp(cmd, "bot_chat_percent") == 0)
    {
-      const int temp = std::atoi(arg1);
-
-      if (temp >= 0 && temp <= 100)
-         bot_chat_percent = std::atoi(arg1); // set bot chat percent
-
+      if (value && *value >= 0 && *value <= 100)
+         bot_chat_percent = *value;
       return;
    }
 
