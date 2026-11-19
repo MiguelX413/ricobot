@@ -41,9 +41,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma warning(disable : 4710) // function not inlined
 #endif
 
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <string>
 
 // Vendor headers depend on this include order.
 // clang-format off
@@ -56,25 +58,23 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "entity_state.h"
 // clang-format on
 
-#define BOT_PITCH_SPEED 30
-#define BOT_YAW_SPEED 30
+inline constexpr int BOT_PITCH_SPEED = 30;
+inline constexpr int BOT_YAW_SPEED = 30;
 
-#define RESPAWN_IDLE 1
-#define RESPAWN_NEED_TO_RESPAWN 2
-#define RESPAWN_IS_RESPAWNING 3
+enum class RespawnState { Unused, Idle, Pending, InProgress };
 
-#define BOT_SKIN_LEN 32
-#define BOT_NAME_LEN 32
+inline constexpr int BOT_SKIN_LEN = 32;
+inline constexpr int BOT_NAME_LEN = 32;
 
-#define MAX_BOT_WHINE 100
+inline constexpr int MAX_BOT_WHINE = 100;
 
 typedef struct {
   bool is_used;
-  int respawn_state;
+  RespawnState respawn_state;
   edict_t *pEdict;
   bool need_to_initialize;
-  char name[BOT_NAME_LEN + 1];
-  char skin[BOT_SKIN_LEN + 1];
+  std::string name;
+  std::array<char, BOT_SKIN_LEN + 1> skin;
   int bot_skill;
   int not_started;
   float kick_time;
@@ -110,7 +110,7 @@ typedef struct {
 extern edict_t *listenserver_edict;
 
 extern int default_bot_skill;
-extern char bot_whine[MAX_BOT_WHINE][81];
+extern std::array<std::string, MAX_BOT_WHINE> bot_whine;
 extern int whine_count;
 
 extern int recent_bot_whine[5];
@@ -124,14 +124,14 @@ extern bool b_observer_mode;
 extern bool b_botdontshoot;
 extern int bot_chat_percent;
 
-#define MAX_BOT_NAMES 100
+inline constexpr int MAX_BOT_NAMES = 100;
 
 // Ricochet specific
 // Powerups
-#define POW_TRIPLE (1 << 0)
-#define POW_FAST (1 << 1)
-#define POW_HARD (1 << 2)
-#define POW_FREEZE (1 << 3)
+inline constexpr int POW_TRIPLE = (1 << 0);
+inline constexpr int POW_FAST = (1 << 1);
+inline constexpr int POW_HARD = (1 << 2);
+inline constexpr int POW_FREEZE = (1 << 3);
 
 #include "bot_func.hpp"
 

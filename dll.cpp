@@ -41,6 +41,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstdlib>
 #include <limits>
 #include <optional>
+#include <utility>
 
 #include "bot.hpp"
 
@@ -67,7 +68,7 @@ float bot_cfg_pause_time = 0.0f;
 float respawn_time = 0.0f;
 bool spawn_time_reset = FALSE;
 
-char bot_whine[MAX_BOT_WHINE][81];
+std::array<std::string, MAX_BOT_WHINE> bot_whine;
 int whine_count;
 int recent_bot_whine[5];
 
@@ -85,7 +86,8 @@ void GameDLLInit() {
   whine_count = 0;
 
   // initialize the bots array of structures...
-  memset(bots, 0, sizeof(bots));
+  for (auto &bot : bots)
+    bot = bot_t{};
 
   for (int &i : recent_bot_whine)
     i = -1;
@@ -97,28 +99,19 @@ void GameDLLInit() {
   FILE *bfp = fopen(filename, "r");
 
   if (bfp != nullptr) {
-    char *ptr;
-    char buffer[256];
-    while ((whine_count < MAX_BOT_WHINE) &&
-           (fgets(buffer, 80, bfp) != nullptr)) {
-      unsigned length = strlen(buffer);
+    std::array<char, 80> buffer;
+    while (whine_count < MAX_BOT_WHINE &&
+           fgets(buffer.data(), buffer.size(), bfp) != nullptr) {
+      std::string message = buffer.data();
+      if (!message.empty() && message.back() == '\n')
+        message.pop_back();
 
-      if (length > 0 && buffer[length - 1] == '\n') {
-        buffer[length - 1] = '\0'; // remove '\n'
-        length--;
-      }
+      const auto player_placeholder = message.find("%n");
+      if (player_placeholder != std::string::npos)
+        message[player_placeholder + 1] = 's';
 
-      if ((ptr = strstr(buffer, "%n")) != nullptr) {
-        *(ptr + 1) = 's'; // change %n to %s
-      }
-
-      if (length > 0) {
-        strncpy(bot_whine[whine_count], buffer,
-                sizeof(bot_whine[whine_count]) - 1);
-        bot_whine[whine_count][sizeof(bot_whine[whine_count]) - 1] =
-            '\0'; // Ensure null-termination
-        whine_count++;
-      }
+      if (!message.empty())
+        bot_whine[whine_count++] = std::move(message);
     }
 
     fclose(bfp);
@@ -377,7 +370,7 @@ void StartFrame() {
       if ((bot_cfg_fp = fopen(filename, "r")) != nullptr) {
         for (index = 0; index < 32; index++) {
           bots[index].is_used = FALSE;
-          bots[index].respawn_state = 0;
+          bots[index].respawn_state = RespawnState::Unused;
           bots[index].kick_time = 0.0f;
         }
 
@@ -392,19 +385,19 @@ void StartFrame() {
         for (index = 0; index < 32; index++) {
           if (count >= prev_num_bots) {
             bots[index].is_used = FALSE;
-            bots[index].respawn_state = 0;
+            bots[index].respawn_state = RespawnState::Unused;
             bots[index].kick_time = 0.0f;
           }
 
           if (bots[index].is_used) // is this slot used?
           {
-            bots[index].respawn_state = RESPAWN_NEED_TO_RESPAWN;
+            bots[index].respawn_state = RespawnState::Pending;
             count++;
           }
 
           // check for any bots that were very recently kicked...
           if (bots[index].kick_time + 5.0f > previous_time) {
-            bots[index].respawn_state = RESPAWN_NEED_TO_RESPAWN;
+            bots[index].respawn_state = RespawnState::Pending;
             count++;
           } else
             bots[index].kick_time = 0.0f; // reset to prevent false spawns later
@@ -460,7 +453,7 @@ void StartFrame() {
 
     for (bot_index = 0; bot_index < gpGlobals->maxClients; bot_index++) {
       if (bots[bot_index].is_used && // is this slot used AND
-          bots[bot_index].respawn_state == RESPAWN_IDLE) // not respawning
+          bots[bot_index].respawn_state == RespawnState::Idle) // not respawning
       {
         BotThink(&bots[bot_index]);
 
@@ -476,17 +469,17 @@ void StartFrame() {
       index = 0;
 
       // find bot needing to be respawned...
-      while (index < 32 && bots[index].respawn_state != RESPAWN_NEED_TO_RESPAWN)
+      while (index < 32 && bots[index].respawn_state != RespawnState::Pending)
         index++;
 
       if (index < 32) {
-        bots[index].respawn_state = RESPAWN_IS_RESPAWNING;
+        bots[index].respawn_state = RespawnState::InProgress;
         bots[index].is_used = FALSE; // free up this slot
 
         // respawn 1 bot then wait a while (otherwise engine crashes)
         char c_skill[2];
         sprintf(c_skill, "%d", bots[index].bot_skill);
-        BotCreate(nullptr, bots[index].name, c_skill);
+        BotCreate(nullptr, bots[index].name.c_str(), c_skill);
 
         respawn_time = gpGlobals->time + 2.0f; // set next respawn time
 
@@ -596,7 +589,8 @@ static std::optional<int> ParseConfigInt(const char *argument) {
 }
 
 void ProcessBotCfgFile() {
-  char cmd_line[256];
+  constexpr std::size_t config_line_capacity = 256;
+  std::array<char, config_line_capacity> cmd_line;
   std::size_t cmd_index = 0;
   bool line_too_long = false;
   char *cmd, *arg1, *arg2;
@@ -617,7 +611,7 @@ void ProcessBotCfgFile() {
     if (ch == '\t') // convert tabs to spaces
       ch = ' ';
 
-    if (cmd_index < sizeof(cmd_line) - 1)
+    if (cmd_index < cmd_line.size() - 1)
       cmd_line[cmd_index++] = static_cast<char>(ch);
     else
       line_too_long = true;
@@ -648,13 +642,13 @@ void ProcessBotCfgFile() {
     return;
 
   cmd_line[cmd_index] = 0; // terminate the command line
-  static char server_cmd[sizeof(cmd_line) + 1];
+  static std::array<char, config_line_capacity + 1> server_cmd;
 
   // copy the command line to a server command buffer...
-  snprintf(server_cmd, sizeof(server_cmd), "%s\n", cmd_line);
+  snprintf(server_cmd.data(), server_cmd.size(), "%s\n", cmd_line.data());
 
   cmd_index = 0;
-  cmd = cmd_line;
+  cmd = cmd_line.data();
   arg1 = arg2 = nullptr;
 
   // skip to blank or end of string...
@@ -740,5 +734,5 @@ void ProcessBotCfgFile() {
     return;
   }
 
-  SERVER_COMMAND(server_cmd);
+  SERVER_COMMAND(server_cmd.data());
 }

@@ -37,6 +37,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // bot.cpp
 //
 
+#include <algorithm>
+#include <string_view>
+
 #include "bot.hpp"
 
 bot_t bots[32]; // max of 32 bots in a game
@@ -46,7 +49,7 @@ int bot_chat_percent = 10;
 
 int number_names = 0;
 
-char bot_names[MAX_BOT_NAMES][BOT_NAME_LEN + 1];
+static std::array<std::string, MAX_BOT_NAMES> bot_names;
 
 void BotSpawnInit(bot_t *pBot) {
   // Fix by Cheeseh (RCBot)
@@ -93,7 +96,8 @@ void BotNameInit() {
       }
 
       if (name_buffer[0] != 0) {
-        strncpy(bot_names[number_names], name_buffer, BOT_NAME_LEN);
+        bot_names[number_names] =
+            std::string_view(name_buffer).substr(0, BOT_NAME_LEN);
         number_names++;
       }
     }
@@ -102,17 +106,14 @@ void BotNameInit() {
   }
 }
 
-void BotPickName(char *name_buffer) {
+static std::string BotPickName() {
   int index;
   int attempts = 0;
 
   // see if a name exists from a kicked bot (if so, reuse it)
   for (index = 0; index < 32; index++) {
-    if (bots[index].is_used == FALSE && bots[index].name[0]) {
-      strcpy(name_buffer, bots[index].name);
-
-      return;
-    }
+    if (bots[index].is_used == FALSE && !bots[index].name.empty())
+      return bots[index].name;
   }
 
   int name_index = RANDOM_LONG(1, number_names) - 1; // zero based
@@ -127,7 +128,7 @@ void BotPickName(char *name_buffer) {
       const edict_t *pPlayer = INDEXENT(index);
 
       if (pPlayer && !pPlayer->free) {
-        if (strcmp(bot_names[name_index], STRING(pPlayer->v.netname)) == 0) {
+        if (bot_names[name_index] == STRING(pPlayer->v.netname)) {
           used = TRUE;
           break;
         }
@@ -147,21 +148,15 @@ void BotPickName(char *name_buffer) {
     }
   }
 
-  strcpy(name_buffer, bot_names[name_index]);
+  return bot_names[name_index];
 }
 
 void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
-  char c_name[BOT_NAME_LEN + 1];
-
-  if (pname != nullptr && *pname != 0) {
-    strncpy(c_name, pname, BOT_NAME_LEN - 1);
-    c_name[BOT_NAME_LEN] = 0; // make sure c_name is null terminated
-  } else {
-    if (number_names > 0)
-      BotPickName(c_name);
-    else
-      strcpy(c_name, "Bot");
-  }
+  std::string name;
+  if (pname != nullptr && *pname != '\0')
+    name = std::string_view(pname).substr(0, BOT_NAME_LEN - 1);
+  else
+    name = number_names > 0 ? BotPickName() : "Bot";
 
   int skill = 0;
 
@@ -171,18 +166,14 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
   if (skill < 1 || skill > 5)
     skill = default_bot_skill;
 
-  size_t length = strlen(c_name);
+  name.erase(std::remove_if(name.begin(), name.end(),
+                            [](char character) {
+                              return character <= ' ' || character > '~' ||
+                                     character == '"';
+                            }),
+             name.end());
 
-  // remove any illegal characters from name...
-  for (size_t i = 0; i < length; i++) {
-    if (c_name[i] <= ' ' || c_name[i] > '~' || c_name[i] == '"') {
-      for (size_t j = i; j < length; j++) // shuffle chars left (and null)
-        c_name[j] = c_name[j + 1];
-      length--;
-    }
-  }
-
-  edict_t *BotEnt = (*g_engfuncs.pfnCreateFakeClient)(c_name);
+  edict_t *BotEnt = (*g_engfuncs.pfnCreateFakeClient)(name.c_str());
 
   if (FNullEnt(BotEnt)) {
     if (pPlayer)
@@ -209,7 +200,7 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
     // (from LINK_ENTITY_TO_CLASS for player object)
     CALL_GAME_ENTITY(PLID, "player", VARS(BotEnt));
 
-    MDLL_ClientConnect(BotEnt, c_name, "127.0.0.1", ptr);
+    MDLL_ClientConnect(BotEnt, name.c_str(), "127.0.0.1", ptr);
     MDLL_ClientPutInServer(BotEnt);
 
     BotEnt->v.flags |= FL_FAKECLIENT;
@@ -217,9 +208,9 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
     bot_t *pBot = &bots[index]; // initialize all the variables for this bot...
 
     pBot->is_used = TRUE;
-    pBot->respawn_state = RESPAWN_IDLE;
+    pBot->respawn_state = RespawnState::Idle;
     pBot->create_time = gpGlobals->time;
-    pBot->name[0] = 0; // name not set by server yet
+    pBot->name.clear(); // name not set by server yet
 
     pBot->pEdict = BotEnt;
 
@@ -511,8 +502,9 @@ void BotThink(bot_t *pBot) {
 
   pEdict->v.flags |= FL_FAKECLIENT;
 
-  if (pBot->name[0] == 0) // name filled in yet?
-    strcpy(pBot->name, STRING(pBot->pEdict->v.netname));
+  if (pBot->name.empty())
+    pBot->name = std::string_view(STRING(pBot->pEdict->v.netname))
+                     .substr(0, BOT_NAME_LEN);
 
   // TheFatal - START from Advanced Bot Framework (Thanks Rich!)
   /*
@@ -545,7 +537,6 @@ void BotThink(bot_t *pBot) {
   if (pBot->b_bot_say_killed && pBot->f_bot_say_killed < gpGlobals->time) {
     int whine_index = 0;
     int i;
-    char msg[120];
 
     pBot->b_bot_say_killed = FALSE;
 
@@ -572,14 +563,18 @@ void BotThink(bot_t *pBot) {
 
     recent_bot_whine[0] = whine_index;
 
+    std::string message = bot_whine[whine_index];
+    const auto player_placeholder = message.find("%s");
     if (pBot->killer_edict != nullptr &&
-        strstr(bot_whine[whine_index], "%s") != nullptr)
-      snprintf(msg, sizeof(msg), bot_whine[whine_index],
-               STRING(pBot->killer_edict->v.netname));
-    else
-      snprintf(msg, sizeof(msg), "%s", bot_whine[whine_index]);
+        player_placeholder != std::string::npos)
+      message.replace(player_placeholder, 2,
+                      std::string_view(STRING(pBot->killer_edict->v.netname))
+                          .substr(0, BOT_NAME_LEN));
 
-    UTIL_HostSay(pEdict, msg);
+    constexpr std::size_t max_chat_length = 119;
+    if (message.size() > max_chat_length)
+      message.resize(max_chat_length);
+    UTIL_HostSay(pEdict, message.c_str());
   }
 
   // if the bot is dead, randomly press fire to respawn...
