@@ -28,7 +28,7 @@ jobs:
 
       - name: Check C++ formatting (Linux)
         if: runner.os == 'Linux'
-        run: clang-format-22 --dry-run --Werror ./*.cpp ./*.h
+        run: clang-format-22 --dry-run --Werror ./*.cpp ./*.hpp
 
       - name: Read Linux runner image version
         if: runner.os == 'Linux'

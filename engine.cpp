@@ -36,7 +36,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // engine.cpp
 //
 
-#include "bot.h"
+#include "bot.hpp"
 
 void (*botMsgFunction)(void *, int) = nullptr;
 void (*botMsgEndFunction)(void *, int) = nullptr;

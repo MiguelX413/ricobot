@@ -18,7 +18,7 @@
 // util.cpp
 //
 
-#include "bot.h"
+#include "bot.hpp"
 
 int gmsgTextMsg = 0;
 int gmsgSayText = 0;

@@ -36,7 +36,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // bot.cpp
 //
 
-#include "bot.h"
+#include "bot.hpp"
 
 bot_t bots[32]; // max of 32 bots in a game
 bool b_observer_mode = FALSE;

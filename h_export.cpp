@@ -36,7 +36,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // h_export.cpp
 //
 
-#include "bot.h"
+#include "bot.hpp"
 
 enginefuncs_t g_engfuncs;
 globalvars_t *gpGlobals;

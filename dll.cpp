@@ -36,7 +36,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // dll.cpp
 //
 
-#include "bot.h"
+#include "bot.hpp"
 
 char welcome_msg[] = "Welcome to Ricobot by Wei Mingzhi\n"
                      "Visit http://yapb.bots-united.com\n"

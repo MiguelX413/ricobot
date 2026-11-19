@@ -31,7 +31,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Ricobot - a bot example for Valve Software's Ricochet MOD
 //
-// bot_func.h
+// bot_func.hpp
 //
 
 #ifndef BOT_FUNC_H

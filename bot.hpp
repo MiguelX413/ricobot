@@ -31,7 +31,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Ricobot - a bot example for Valve Software's Ricochet MOD
 //
-// bot.h
+// bot.hpp
 //
 
 #ifndef BOT_H
@@ -131,6 +131,6 @@ extern int bot_chat_percent;
 #define POW_HARD (1 << 2)
 #define POW_FREEZE (1 << 3)
 
-#include "bot_func.h"
+#include "bot_func.hpp"
 
 #endif // BOT_H

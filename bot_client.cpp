@@ -36,7 +36,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // bot_client.cpp
 //
 
-#include "bot.h"
+#include "bot.hpp"
 
 // This message gets sent when the bots get killed
 void BotClient_Ricochet_DeathMsg(void *p, int bot_index)
