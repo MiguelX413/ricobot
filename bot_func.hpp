@@ -37,6 +37,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef BOT_FUNC_H
 #define BOT_FUNC_H
 
+#include <span>
+
 // function prototypes...
 void BotSpawnInit(bot_t *pBot);
 void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill);
@@ -70,7 +72,8 @@ Vector GetGunPosition(edict_t *pEdict);
 Vector VecBModelOrigin(edict_t *pEdict);
 // void UTIL_ShowMenu( edict_t *pEdict, int slots, int displaytime, bool
 // needmore, char *pText );
-void UTIL_BuildFileName(char *filename, char *arg1, char *arg2);
+bool UTIL_BuildFileName(std::span<char> filename, const char *arg1,
+                        const char *arg2);
 void ClampAngle(float &angle);
 void ClampAngles(Vector &angles);
 

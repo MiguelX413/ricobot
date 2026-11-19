@@ -19,6 +19,7 @@
 // util.cpp
 //
 
+#include <algorithm>
 #include <cstdio>
 
 #include "bot.hpp"
@@ -254,17 +255,31 @@ Vector VecBModelOrigin(edict_t *pEdict) {
   return pEdict->v.absmin + (pEdict->v.size * 0.5f);
 }
 
-void UTIL_BuildFileName(char *filename, char *arg1, char *arg2) {
-  GET_GAME_DIR(filename);
-  strcat(filename, "/");
+bool UTIL_BuildFileName(std::span<char> filename, const char *arg1,
+                        const char *arg2) {
+  // GoldSrc's callback takes a writable path buffer without a size argument.
+  std::array<char, 256> game_dir{};
+  GET_GAME_DIR(game_dir.data());
+  const auto end = std::ranges::find(game_dir, '\0');
+  if (end == game_dir.end())
+    return false;
 
-  if ((arg1) && (*arg1) && (arg2) && (*arg2)) {
-    strcat(filename, arg1);
-    strcat(filename, "/");
-    strcat(filename, arg2);
-  } else if ((arg1) && (*arg1)) {
-    strcat(filename, arg1);
+  std::string path(game_dir.begin(), end);
+  path += '/';
+  if (arg1 && *arg1) {
+    path += arg1;
+    if (arg2 && *arg2) {
+      path += '/';
+      path += arg2;
+    }
   }
+
+  if (path.size() >= filename.size())
+    return false;
+
+  const auto copied = std::ranges::copy(path, filename.begin());
+  *copied.out = '\0';
+  return true;
 }
 
 void ClampAngle(float &angle) {

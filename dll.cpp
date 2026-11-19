@@ -37,6 +37,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // dll.cpp
 //
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdlib>
 #include <limits>
@@ -81,7 +82,8 @@ void GameDLLInit() {
   char filename[256];
 
   // Register server command
-  (*g_engfuncs.pfnAddServerCommand)("bot", ServerCommand);
+  static char command_name[] = "bot";
+  (*g_engfuncs.pfnAddServerCommand)(command_name, ServerCommand);
 
   whine_count = 0;
 
@@ -89,12 +91,12 @@ void GameDLLInit() {
   for (auto &bot : bots)
     bot = bot_t{};
 
-  for (int &i : recent_bot_whine)
-    i = -1;
+  std::ranges::fill(recent_bot_whine, -1);
 
   BotNameInit();
 
-  UTIL_BuildFileName(filename, "bot_whine.txt", nullptr);
+  if (!UTIL_BuildFileName(filename, "bot_whine.txt", nullptr))
+    return;
 
   FILE *bfp = fopen(filename, "r");
 
@@ -126,15 +128,18 @@ META_FUNCTIONS gMetaFunctionTable = {
     GetEntityAPI,       nullptr, nullptr, nullptr, nullptr, nullptr,
     GetEngineFunctions, nullptr};
 
-plugin_info_t Plugin_info = {META_INTERFACE_VERSION,
-                             "Ricobot",
-                             "1.2",
-                             __DATE__,
-                             "Wei Mingzhi",
-                             "http://yapb.bots-united.com",
-                             "RICOBOT",
-                             PT_STARTUP,
-                             PT_ANYTIME};
+// Metamod's plugin info stores mutable pointers to these strings.
+static char plugin_interface[] = META_INTERFACE_VERSION;
+static char plugin_name[] = "Ricobot";
+static char plugin_version[] = "1.2";
+static char plugin_date[] = __DATE__;
+static char plugin_author[] = "Wei Mingzhi";
+static char plugin_url[] = "http://yapb.bots-united.com";
+static char plugin_log_tag[] = "RICOBOT";
+
+plugin_info_t Plugin_info = {plugin_interface, plugin_name,   plugin_version,
+                             plugin_date,      plugin_author, plugin_url,
+                             plugin_log_tag,   PT_STARTUP,    PT_ANYTIME};
 
 // Metamod requesting info about this plugin
 C_DLLEXPORT int Meta_Query(char *, plugin_info_t **pPlugInfo,
@@ -365,9 +370,11 @@ void StartFrame() {
       strcpy(mapname, STRING(gpGlobals->mapname));
       strcat(mapname, "_bot.cfg");
 
-      UTIL_BuildFileName(filename, "maps", mapname);
+      bot_cfg_fp = UTIL_BuildFileName(filename, "maps", mapname)
+                       ? fopen(filename, "r")
+                       : nullptr;
 
-      if ((bot_cfg_fp = fopen(filename, "r")) != nullptr) {
+      if (bot_cfg_fp != nullptr) {
         for (index = 0; index < 32; index++) {
           bots[index].is_used = FALSE;
           bots[index].respawn_state = RespawnState::Unused;
@@ -444,7 +451,8 @@ void StartFrame() {
         WRITE_SHORT(512);
         WRITE_STRING(welcome_msg);
         MESSAGE_END();
-        SERVER_COMMAND("speak barney/guyresponsible\n");
+        char welcome_sound[] = "speak barney/guyresponsible\n";
+        SERVER_COMMAND(welcome_sound);
         welcome_sent = TRUE; // clear this so we only do it once
       }
     }
@@ -501,10 +509,12 @@ void StartFrame() {
         strcpy(mapname, STRING(gpGlobals->mapname));
         strcat(mapname, "_bot.cfg");
 
-        UTIL_BuildFileName(filename, "maps", mapname);
+        bot_cfg_fp = UTIL_BuildFileName(filename, "maps", mapname)
+                         ? fopen(filename, "r")
+                         : nullptr;
 
-        if ((bot_cfg_fp = fopen(filename, "r")) == nullptr) {
-          UTIL_BuildFileName(filename, "bot.cfg", nullptr);
+        if (bot_cfg_fp == nullptr &&
+            UTIL_BuildFileName(filename, "bot.cfg", nullptr)) {
           bot_cfg_fp = fopen(filename, "r");
         }
 

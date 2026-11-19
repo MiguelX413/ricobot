@@ -70,7 +70,8 @@ void BotSpawnInit(bot_t *pBot) {
 void BotNameInit() {
   char bot_name_filename[256];
 
-  UTIL_BuildFileName(bot_name_filename, "bot_names.txt", nullptr);
+  if (!UTIL_BuildFileName(bot_name_filename, "bot_names.txt", nullptr))
+    return;
 
   FILE *bot_name_fp = fopen(bot_name_filename, "r");
 
@@ -166,12 +167,9 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
   if (skill < 1 || skill > 5)
     skill = default_bot_skill;
 
-  name.erase(std::remove_if(name.begin(), name.end(),
-                            [](char character) {
-                              return character <= ' ' || character > '~' ||
-                                     character == '"';
-                            }),
-             name.end());
+  std::erase_if(name, [](char character) {
+    return character <= ' ' || character > '~' || character == '"';
+  });
 
   edict_t *BotEnt = (*g_engfuncs.pfnCreateFakeClient)(name.c_str());
 
@@ -536,31 +534,19 @@ void BotThink(bot_t *pBot) {
 
   if (pBot->b_bot_say_killed && pBot->f_bot_say_killed < gpGlobals->time) {
     int whine_index = 0;
-    int i;
-
     pBot->b_bot_say_killed = FALSE;
 
-    int recent_count = 0;
-
-    while (recent_count < 5) {
+    for (std::size_t attempt = 0; attempt < std::size(recent_bot_whine);
+         ++attempt) {
       whine_index = RANDOM_LONG(0, whine_count - 1);
-
-      bool used = FALSE;
-
-      for (i = 0; i < 5; i++) {
-        if (recent_bot_whine[i] == whine_index)
-          used = TRUE;
-      }
-
-      if (used)
-        recent_count++;
-      else
+      if (std::ranges::find(recent_bot_whine, whine_index) ==
+          std::ranges::end(recent_bot_whine))
         break;
     }
 
-    for (i = 4; i > 0; i--)
-      recent_bot_whine[i] = recent_bot_whine[i - 1];
-
+    std::ranges::copy_backward(std::ranges::begin(recent_bot_whine),
+                               std::ranges::end(recent_bot_whine) - 1,
+                               std::ranges::end(recent_bot_whine));
     recent_bot_whine[0] = whine_index;
 
     std::string message = bot_whine[whine_index];
