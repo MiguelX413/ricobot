@@ -45,6 +45,8 @@
 #include "osdep.h"				// NAME_MAX, etc
 #include "types_meta.h"			// mBOOL
 #include "mplayer.h"                    // MPlayerList
+#include "meta_eiface.h"        // HL_enginefuncs_t, meta_enginefuncs_t
+#include "engine_t.h"           // engine_t, Engine
 
 // file that lists plugins to load at startup
 #define PLUGINS_INI			"addons/metamod/plugins.ini"
@@ -66,33 +68,27 @@ extern DLHANDLE metamod_handle DLLHIDDEN;
 // cvar to contain version
 extern cvar_t meta_version DLLHIDDEN;
 
+// Game DLL function tables (hot path, extracted for cache locality).
+extern gamedll_funcs_t GameDLL_funcs DLLHIDDEN;
+
 // Info about the game dll/mod.
 typedef struct gamedll_s {
+	char const *file;		// ie "cs_i386.so"
+	const char *desc;		// ie "Counter-Strike"
+	DLHANDLE handle;
 	char name[NAME_MAX];		// ie "cstrike" (from gamedir)
-	const char *desc;				// ie "Counter-Strike"
 	char gamedir[PATH_MAX];		// ie "/home/willday/half-life/cstrike"
 	char pathname[PATH_MAX];	// ie "/home/willday/half-life/cstrike/dlls/cs_i386.so"
-	char const *file;			// ie "cs_i386.so"
 	char real_pathname[PATH_MAX];	// in case pathname overridden by bot, etc
-	DLHANDLE handle;
-	gamedll_funcs_t funcs;		// dllapi_table, newapi_table
 } gamedll_t;
 extern gamedll_t GameDLL DLLHIDDEN;
 
 // SDK variables for storing engine funcs and globals.
-extern enginefuncs_t g_engfuncs DLLHIDDEN;
-extern globalvars_t  *gpGlobals DLLHIDDEN;
+extern HL_enginefuncs_t g_engfuncs DLLHIDDEN;
+extern globalvars_t *gpGlobals DLLHIDDEN;
 
 // Our modified version of the engine funcs, to give to plugins.
-extern enginefuncs_t g_plugin_engfuncs DLLHIDDEN;
-
-// Our structure for storing engine references.
-typedef struct engine_s {
-	enginefuncs_t	*funcs;			// engine funcs
-	globalvars_t	*globals;		// engine globals
-	enginefuncs_t	*pl_funcs;		// "modified" eng funcs we give to plugins
-} engine_t;
-extern engine_t Engine DLLHIDDEN;
+extern meta_enginefuncs_t g_plugin_engfuncs DLLHIDDEN;
 
 // Config structure.
 extern MConfig *Config DLLHIDDEN;
@@ -210,10 +206,20 @@ mBOOL DLLINTERNAL meta_load_gamedll(void);
 extern long double total_tsc DLLHIDDEN;
 extern unsigned long long count_tsc DLLHIDDEN;
 extern unsigned long long active_tsc DLLHIDDEN;
+extern unsigned long long min_tsc DLLHIDDEN;
 
 inline unsigned long long DLLINTERNAL GET_TSC(void) {
 	union { struct { unsigned int eax, edx;	} split; unsigned long long full; } tsc;
+#ifdef __GNUC__
 	__asm__ __volatile__("rdtsc":"=a"(tsc.split.eax), "=d"(tsc.split.edx));	
+#else
+	__asm
+	{
+		rdtsc
+		mov tsc.split.eax, eax
+		mov tsc.split.edx, edx
+	}
+#endif
 	return(tsc.full);
 }
 
@@ -226,9 +232,13 @@ inline unsigned long long DLLINTERNAL GET_TSC(void) {
 #define API_UNPAUSE_TSC_TRACKING() \
 	active_tsc = GET_TSC()
 
-#define API_END_TSC_TRACKING() \
-	total_tsc += GET_TSC() - active_tsc; \
-	count_tsc++;
+#define API_END_TSC_TRACKING() { \
+		unsigned long long run_tsc = GET_TSC() - active_tsc; \
+		total_tsc += run_tsc; \
+		count_tsc++; \
+		if(min_tsc == 0 || run_tsc < min_tsc) \
+			min_tsc = run_tsc; \
+	}
 
 // ===== end ==================================================================
 

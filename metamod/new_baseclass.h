@@ -31,7 +31,7 @@
 #ifndef METAMOD_NEW_BASECLASS_H
 #define METAMOD_NEW_BASECLASS_H
 
-#include <string.h>
+#include <malloc.h>
 
 #include "comp_dep.h"
 
@@ -56,12 +56,12 @@ public:
 	}
 	
 	inline void operator delete(void *ptr) {
-//		if(ptr)
+		if(ptr)
 			free(ptr); 
 	}
 	
 	inline void operator delete[](void *ptr) {
-//		if(ptr)
+		if(ptr)
 			free(ptr); 
 	}
 };

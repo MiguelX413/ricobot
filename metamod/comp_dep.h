@@ -33,7 +33,7 @@
 #define COMP_DEP_H
 
 #define DECLSPEC(kw)
-#if defined WIN32 && defined _MSC_VER
+#if defined (_WIN32) && defined (_MSC_VER)
 	#define ATTRIBUTE(kw) 
 #else
 	#define ATTRIBUTE(kw) __attribute__((kw))
@@ -60,7 +60,7 @@
 	#endif
 #else
 	#define DLLHIDDEN
-	#if defined WIN32 && defined _MSC_VER
+	#if defined (_WIN32) && defined (_MSC_VER)
 		#define DLLINTERNAL_NOVIS
 		#define DLLINTERNAL
 	#else
@@ -72,6 +72,55 @@
 			#define DLLINTERNAL 
 		#endif
 	#endif //defined WIN32
+#endif
+
+#if defined (_WIN32)
+	// This is already defined in newer versions of Visual Studio (note: it's defined in Visual Studio 2022 at least but possibly in prior versions too).
+	#if defined (_MSC_VER) && (_MSC_VER < 1931)
+		// On x86 va_list is just a pointer.
+		#define va_copy(dst,src) ((dst)=(src))
+	#endif
+#else
+	// Some systems that do not supply va_copy have __va_copy instead, since 
+	// that was the name used in the draft proposal.
+	#if !defined(__GNUC__) || __GNUC__ < 3
+		#define va_copy __va_copy
+	#endif
+#endif
+
+// On 32-bit x86, the HL engine may call functions with only 4-byte stack
+// alignment. Apply this to entry points called by engine/gamedll/plugins.
+#if defined(__GNUC__) && defined(__i386__)
+	#define FORCE_STACK_ALIGN __attribute__((force_align_arg_pointer))
+#else
+	#define FORCE_STACK_ALIGN
+#endif
+
+// Optimize hot dispatch functions: skip stack canary, hint for aggressive optimization
+#if defined(__clang__) && __clang_major__ >= 7
+	#define HOT_FUNC __attribute__((hot, no_stack_protector))
+#elif defined(__GNUC__) && __GNUC__ >= 11
+	#define HOT_FUNC __attribute__((hot, no_stack_protector))
+#elif defined(__GNUC__)
+	#define HOT_FUNC __attribute__((hot))
+#else
+	#define HOT_FUNC
+#endif
+
+// Prevent function inlining to reduce code size at call sites
+#if defined(__GNUC__)
+	#define NOINLINE __attribute__((noinline))
+#else
+	#define NOINLINE
+#endif
+
+// Place hot-path data in dedicated sections for cache locality
+#if defined(__GNUC__)
+	#define HOT_DATA __attribute__((section(".data.hot_data")))
+	#define HOT_RODATA __attribute__((section(".data.hot_rodata")))
+#else
+	#define HOT_DATA
+	#define HOT_RODATA
 #endif
 
 // Manual branch optimization for GCC 3.0.0 and newer

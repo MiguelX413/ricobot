@@ -47,7 +47,14 @@ typedef int (*GET_ENGINE_FUNCTIONS_FN) (enginefuncs_t *pengfuncsFromEngine, int 
 //! ONLY ADD NEW FUNCTIONS TO THE END OF THIS STRUCT.  INTERFACE VERSION IS FROZEN AT 138
 #define ENGINE_INTERFACE_VERSION 138
 
+// Protect against other projects which use this include file but use the
+// normal enginefuncs_t type for their meta_engfuncs.
+#ifdef __METAMOD_BUILD__
+#  include "meta_eiface.h"    // meta_enginefuncs_t
+extern meta_enginefuncs_t meta_engfuncs DLLHIDDEN;
+#else
 extern enginefuncs_t meta_engfuncs DLLHIDDEN;
+#endif
 
 // Typedefs for the above functions:
 
@@ -224,8 +231,12 @@ typedef void (*FN_PROCESSTUTORMESSAGEDECAYBUFFER) (int *buffer, int bufferLength
 typedef void (*FN_CONSTRUCTTUTORMESSAGEDECAYBUFFER) (int *buffer, int bufferLength);
 typedef void (*FN_RESETTUTORMESSAGEDECAYDATA) (void);
 // Added 2005/08/11 (no SDK update):
-typedef void (*FN_QUERYCLIENTCVARVALUE) ( const edict_t *player, const char *cvarName );  
+typedef void (*FN_QUERYCLIENTCVARVALUE) ( const edict_t *player, const char *cvarName );
 // Added 2005/11/21 (no SDK update):
 typedef void (*FN_QUERYCLIENTCVARVALUE2) ( const edict_t *player, const char *cvarName, int requestID );
+// Added 2009/06/17 (no SDK update):
+typedef void (*FN_ENGCHECKPARM) ( const char *pchCmdLineToken, char **pchNextVal );
+// Added 2024/08/21 (HL25 SDK update):
+typedef edict_t * (*FN_PENTITYOFENTINDEXALLENTITIES) (int iEntIndex);
 
 #endif /* ENGINE_API_H */

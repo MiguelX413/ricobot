@@ -49,7 +49,7 @@
 #include "log_meta.h"		// LOG_ERROR, etc
 
 // String describing platform/DLL-type, for matching lines in plugins.ini.
-#ifdef linux
+#ifdef __linux__
 	#define PLATFORM	"linux"
 #  if defined(__x86_64__) || defined(__amd64__)
 	#define PLATFORM_SPC	"lin64"
@@ -61,14 +61,6 @@
 	#define PLATFORM	"mswin"
 	#define PLATFORM_SPC	"win32"
 	#define PLATFORM_DLEXT	".dll"
-#elif defined (__APPLE__)
-	#define PLATFORM	"macosx"
-#  if defined(__x86_64__) || defined(__amd64__)
-	#define PLATFORM_SPC	"mac64"
-#  else
-	#define PLATFORM_SPC	"mac32"
-#  endif
-	#define PLATFORM_DLEXT	".dylib"
 #else /* unknown */
 	#error "OS unrecognized"
 #endif /* unknown */
@@ -91,10 +83,10 @@
 	#define DLLEXPORT	__declspec(dllexport)
 	// WINAPI should be provided in the windows compiler headers.
 	// It's usually defined to something like "__stdcall".
-#elif defined(linux) || defined (__APPLE__)
-	#define DLLEXPORT	__attribute__((visibility("default")))
+#elif defined(__linux__)
+	#define DLLEXPORT	__attribute__ ((visibility ("default"), externally_visible))
 	#define WINAPI		/* */
-#endif /* linux */
+#endif /* __linux__ */
 
 // Simplified macro for declaring/defining exported DLL functions.  They
 // need to be 'extern "C"' so that the C++ compiler enforces parameter
@@ -106,7 +98,7 @@
 #define C_DLLEXPORT		extern "C" DLLEXPORT
 
 // Special version that fixes vsnprintf bugs.
-#ifdef FIX_VARARG_ENGINE_API_WARPERS
+#ifndef DO_NOT_FIX_VARARG_ENGINE_API_WARPERS
 int DLLINTERNAL safe_vsnprintf(char* s,  size_t n,  const char *format, va_list ap);
 int DLLINTERNAL safe_snprintf(char* s, size_t n, const char* format, ...);
 #endif
@@ -115,7 +107,7 @@ void DLLINTERNAL safevoid_snprintf(char* s, size_t n, const char* format, ...);
 
 // Functions & types for DLL open/close/etc operations.
 extern mBOOL dlclose_handle_invalid DLLHIDDEN;
-#ifdef linux
+#ifdef __linux__
 	#include <dlfcn.h>
 	typedef void* DLHANDLE;
 	typedef void* DLFUNC;
@@ -159,7 +151,7 @@ extern mBOOL dlclose_handle_invalid DLLHIDDEN;
 		
 		// NOTE: Windows FreeLibrary returns success=nonzero, fail=zero,
 		// which is the opposite of the unix convention, thus the '!'.
-		return(~FreeLibrary(handle));
+		return(!FreeLibrary(handle));
 	}
 	// Windows doesn't provide a function corresponding to dlerror(), so
 	// we make our own.
@@ -186,10 +178,10 @@ mBOOL DLLINTERNAL os_safe_call(REG_CMD_FN pfn);
 
 
 // Linux doesn't have an strlwr() routine, so we write our own.
-#ifdef linux
+#ifdef __linux__
 	#define strlwr(s) my_strlwr(s)
 	char * DLLINTERNAL my_strlwr(char *s);
-#endif /* _WIN32 */
+#endif /* __linux__ */
 
 
 // Set filename and pathname maximum lengths.  Note some windows compilers
@@ -199,39 +191,43 @@ mBOOL DLLINTERNAL os_safe_call(REG_CMD_FN pfn);
 // Note that both OS's include room for null-termination:
 //   linux:    "# chars in a path name including nul"
 //   win32:    "note that the sizes include space for 0-terminator"
-#ifdef linux
+#ifdef __linux__
 	#include <limits.h>
 #elif defined(_WIN32)
 	#include <stdlib.h>
 	#define NAME_MAX	_MAX_FNAME
-   
-   #if !defined (PATH_MAX)
-	#  define PATH_MAX	_MAX_PATH
-   #endif
+	#ifndef PATH_MAX
+		#define PATH_MAX	_MAX_PATH
+	#endif
 #endif /* _WIN32 */
 
 // Various other windows routine differences.
-#ifdef linux
+#ifdef __linux__
 	#include <unistd.h>	// sleep
 	#ifndef O_BINARY
-    	#define O_BINARY 0
+    		#define O_BINARY 0
 	#endif	
 #elif defined(_WIN32)
-	#define snprintf	_snprintf
-	#define vsnprintf	_vsnprintf
-	#define sleep(x)	Sleep(x*1000)
-	#define unlink		_unlink
-	#define strlwr		_strlwr
-	#define strdup		_strdup
-	#define strcasecmp	_stricmp
-	#define strncasecmp	_strnicmp
-	#define getcwd		_getcwd
-    #include <io.h>
+	#include <io.h>
 	#include <direct.h>
-//    #define open _open
-//    #define read _read
-//    #define write _write
-//    #define close _close
+	
+	#define sleep(x) Sleep(x*1000)
+
+	// Fixed MSVC compiling, by Nikolay "The Storm" Baklicharov.
+	#if defined(__GNUC__) || defined (_MSC_VER) && _MSC_VER >= 1400
+		#define snprintf	_snprintf
+		#define vsnprintf	_vsnprintf
+		#define unlink		_unlink
+		#define strlwr		_strlwr
+		#define strdup		_strdup
+		#define strcasecmp	_stricmp
+		#define strncasecmp	_strnicmp
+		#define getcwd		_getcwd
+		#define open		_open
+		#define read		_read
+		#define write		_write
+		#define close		_close
+	#endif /* GCC or MSVC 8.0+ */
 #endif /* _WIN32 */
 
 #if !defined WIN32 && !defined _MSC_VER
@@ -270,7 +266,7 @@ mBOOL DLLINTERNAL os_safe_call(REG_CMD_FN pfn);
 //      non-case-sensitive.
 //  - For linux, this requires no work, as paths uses slashes (/) natively,
 //    and pathnames are case-sensitive.
-#ifdef linux
+#ifdef __linux__
 #define normalize_pathname(a)
 #elif defined(_WIN32)
 void DLLINTERNAL normalize_pathname(char *path);
@@ -300,7 +296,7 @@ char * DLLINTERNAL realpath(const char *file_name, char *resolved_name);
 // Generic "error string" from a recent OS call.  For linux, this is based
 // on errno.  For win32, it's based on GetLastError.
 inline const char * DLLINTERNAL str_os_error(void) {
-#ifdef linux
+#ifdef __linux__
 	return(strerror(errno));
 #elif defined(_WIN32)
 	return(str_GetLastError());

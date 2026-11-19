@@ -38,7 +38,7 @@
 #define MPLUGIN_H
 
 #include <time.h>			// time_t, etc
-#include <string.h>			// malloc, etc
+#include <malloc.h>			// malloc, etc
 
 #include <eiface.h>			// DLL_FUNCTIONS, etc
 
@@ -116,37 +116,50 @@ typedef struct {
 
 // An individual plugin.
 class MPlugin : public class_metamod_new {
+	private:
+		typedef char assert_status_size[sizeof(PLUG_STATUS) == sizeof(int) ? 1 : -1];
+		typedef char assert_action_size[sizeof(PLUG_ACTION) == sizeof(int) ? 1 : -1];
+		typedef char assert_source_size[sizeof(PLOAD_SOURCE) == sizeof(int) ? 1 : -1];
 	public:
 	// data:
 		// reordered for faster api_hook.cpp functions
-		PLUG_STATUS status;				// current status of plugin (loaded, etc)
-		api_tables_t tables;
-		api_tables_t post_tables;
-		
+		union {
+			PLUG_STATUS status;			// current status of plugin (loaded, etc)
+			int status_int;				// int alias for switch without enum-load UB
+		};
+		api_tables_t tables;				// plugin's API function tables
+		api_tables_t post_tables;			// plugin's post-API function tables
+
 		inline DLLINTERNAL void * get_api_table(enum_api_t api) {
 			return(((void**)&tables)[api]);
 		}
 		inline DLLINTERNAL void * get_api_post_table(enum_api_t api) {
 			return(((void**)&post_tables)[api]);
 		}
-		
+
+		char *file;					// ie "mm_test_i386.so", ptr from filename
 		int index;					// 1-based
 		int pfspecific;                  		// level of specific platform affinity, used during load time
-		PLUG_ACTION action;				// what to do with plugin (load, unload, etc)
-		PLOAD_SOURCE source;				// source of the request to load the plugin
+		union {
+			PLUG_ACTION action;			// what to do with plugin (load, unload, etc)
+			int action_int;				// int alias for switch without enum-load UB
+		};
+		union {
+			PLOAD_SOURCE source;			// source of the request to load the plugin
+			int source_int;				// int alias for switch without enum-load UB
+		};
 		int source_plugin_index;			// index of plugin that loaded this plugin. -1 means source plugin has been unloaded.
 		int unloader_index;
 		mBOOL is_unloader;				// fix to prevent other plugins unload active unloader.
-		
+
 		DLHANDLE handle;				// handle for dlopen, dlsym, etc
 		plugin_info_t *info;				// information plugin provides about itself
 		time_t time_loaded;				// when plugin was loaded
 		
-		char filename[PATH_MAX];			// ie "dlls/mm_test_i386.so", from inifile
-		char *file;					// ie "mm_test_i386.so", ptr from filename
 		char desc[MAX_DESC_LEN];			// ie "Test metamod plugin", from inifile
+		char filename[PATH_MAX];			// ie "dlls/mm_test_i386.so", from inifile
 		char pathname[PATH_MAX];			// UNIQUE, ie "/home/willday/half-life/cstrike/dlls/mm_test_i386.so", built with GameDLL.gamedir
-		
+
 	// functions:		
 		mBOOL DLLINTERNAL ini_parseline(const char *line);		// parse line from inifile
 		mBOOL DLLINTERNAL cmd_parseline(const char *line);		// parse from console command
@@ -202,9 +215,15 @@ class MPlugin : public class_metamod_new {
 		mBOOL DLLINTERNAL query(void);
 		mBOOL DLLINTERNAL attach(PLUG_LOADTIME now);
 		mBOOL DLLINTERNAL detach(PLUG_LOADTIME now, PL_UNLOAD_REASON reason);
-		
+
 		gamedll_funcs_t gamedll_funcs;
 		mutil_funcs_t mutil_funcs;
+
+#ifdef UNITTESTS
+	public:
+		mBOOL test_detach(PLUG_LOADTIME now, PL_UNLOAD_REASON reason) { return detach(now, reason); }
+		gamedll_funcs_t & test_gamedll_funcs() { return gamedll_funcs; }
+#endif
 };
 
 // Macros used by MPlugin::show(), to list the functions that the plugin

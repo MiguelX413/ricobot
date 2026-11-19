@@ -58,7 +58,6 @@ typedef void * (DLLINTERNAL_NOVIS * api_caller_func_t)(const void * func, const 
 
 
 typedef struct api_info_s {
-	mBOOL trace;			// if true, log info about this function
 	int loglevel;			// level at which to log info about this function
 	api_caller_func_t api_caller;	// argument format/type for single-main-hook-function optimization
 	const char *name;		// string representation of function name
@@ -298,6 +297,10 @@ typedef struct engine_info_s {
 	api_info_t pfnQueryClientCvarValue;
 	// Added 2005/11/21 (no SDK update):
 	api_info_t pfnQueryClientCvarValue2;
+	// Added 2009/06/17 (no SDK update):
+	api_info_t pfnEngCheckParm;
+	// Added 2024/08/21 (HL25 SDK update):
+	api_info_t pfnPEntityOfEntIndexAllEntities;
 	// end
 	api_info_t END;
 } engine_info_t;

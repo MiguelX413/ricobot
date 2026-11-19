@@ -49,18 +49,53 @@
 // Width required to printf above MAX, for show() functions.
 #define WIDTH_MAX_PLUGINS	2
 
+// Pre-filtered plugin list for a single API group + phase combination.
+// Contains only running plugins that have a non-NULL table for that group.
+struct api_plugin_list_t {
+	int count;
+	MPlugin **plugs;
+};
+
+// Set by rebuild_hook_lists() to signal main_hook_function that cached
+// pointers are stale and need to be refreshed.
+extern mBOOL DLLHIDDEN hook_list_tables_updated;
 
 // A list of plugins.
 class MPluginList : public class_metamod_new {
 	public:
 	// data:
-		MPlugin plist[MAX_PLUGINS];			// array of plugins
+		api_plugin_list_t hook_lists[3][2];		// pre-filtered per-api [pre,post] plugin arrays
+		MPlugin **hook_list_data;			// backing allocation for hook_lists plugs pointers
 		int size;					// size of list, ie MAX_PLUGINS
 		int endlist;					// index of last used entry
+		MPlugin plist[MAX_PLUGINS];			// array of plugins
 		char inifile[PATH_MAX];				// full pathname
 
-	// constructor:
+		inline DLLINTERNAL const api_plugin_list_t * get_hook_list(enum_api_t api) {
+			return(&hook_lists[api][0]);
+		}
+		inline DLLINTERNAL const api_plugin_list_t * get_hook_post_list(enum_api_t api) {
+			return(&hook_lists[api][1]);
+		}
+		inline DLLINTERNAL int find_plugin_after_rebuild(
+			enum_api_t api, mBOOL post, MPlugin *current_plugin,
+			int &out_count, MPlugin * const * &out_plugs)
+		{
+			const api_plugin_list_t *list = &hook_lists[api][post ? 1 : 0];
+			out_plugs = list->plugs;
+			out_count = list->count;
+			for(int j = 0; j < out_count; j++) {
+				if(out_plugs[j] == current_plugin)
+					return j;
+				if(out_plugs[j] > current_plugin)
+					return j - 1;
+			}
+			return out_count - 1;
+		}
+
+	// constructor/destructor:
 		MPluginList(const char *ifile) DLLINTERNAL;
+		~MPluginList(void) DLLINTERNAL;
 
 	// functions:
 		void DLLINTERNAL reset_plugin(MPlugin *pl_find);
@@ -84,6 +119,7 @@ class MPluginList : public class_metamod_new {
 
 		mBOOL DLLINTERNAL load(void);				// load the list, at startup
 		mBOOL DLLINTERNAL refresh(PLUG_LOADTIME now);		// update from re-read inifile
+		void DLLINTERNAL rebuild_hook_lists(void);
 		void DLLINTERNAL unpause_all(void);			// unpause any paused plugins
 		void DLLINTERNAL retry_all(PLUG_LOADTIME now);		// retry any pending plugin actions
 		void DLLINTERNAL show(int source_index);		// list plugins to console
