@@ -253,8 +253,11 @@ BOOL ClientConnect(edict_t *pEntity, const char *pszName,
           if (bots[i].is_used) // is this slot used?
           {
             char cmd[80];
-            sprintf(cmd, "kick \"%s\"\n", STRING(bots[i].pEdict->v.netname));
-            SERVER_COMMAND(cmd); // kick the bot using (kick "name")
+            const int length = snprintf(cmd, sizeof(cmd), "kick \"%s\"\n",
+                                        STRING(bots[i].pEdict->v.netname));
+            if (length >= 0 && static_cast<std::size_t>(length) < sizeof(cmd)) {
+              SERVER_COMMAND(cmd); // kick the bot using (kick "name")
+            }
             break;
           }
         }
