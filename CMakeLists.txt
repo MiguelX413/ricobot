@@ -14,6 +14,7 @@ add_library(ricobot_mm MODULE
     dll.cpp
     engine.cpp
     h_export.cpp
+    jump_target.cpp
     util.cpp
 )
 set_target_properties(ricobot_mm PROPERTIES

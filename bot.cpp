@@ -44,6 +44,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "bot.hpp"
 #include "goldsrc.hpp"
+#include "jump_target.hpp"
 
 bool b_observer_mode = false;
 bool b_botdontshoot = false;
@@ -325,7 +326,7 @@ void BotShootAtEnemy(bot_t *pBot) {
   }
 }
 
-static Vector SelectJumpTarget(bot_t &bot) {
+static Vector QueryJumpTarget(bot_t &bot) {
   const edict_t &edict = *bot.pEdict;
   Vector target = bot.vecTargetPos;
 
@@ -341,7 +342,7 @@ static Vector SelectJumpTarget(bot_t &bot) {
            nullptr) {
       if (strcmp(STRING(p->v.classname), "trigger_jump") == 0) {
         const Vector v_dest = VecBModelOrigin(p);
-        if (std::fabs(edict.v.absmin.z - p->v.absmax.z) < 32 &&
+        if (jump_target::IsJumpHeight(edict.v.absmin.z, p->v.absmax.z) &&
             !IsDeadlyDrop(&bot, v_dest)) {
           vecWPT[iCount++] = v_dest;
           if (iCount >= 8)
@@ -351,7 +352,9 @@ static Vector SelectJumpTarget(bot_t &bot) {
     }
 
     if (iCount > 0)
-      target = vecWPT[RANDOM_LONG(0, iCount - 1)];
+      target = jump_target::Select(
+          target, std::span{vecWPT}.first(static_cast<std::size_t>(iCount)),
+          static_cast<std::size_t>(RANDOM_LONG(0, iCount - 1)));
   }
 
   // try not to knock into other players
@@ -364,16 +367,10 @@ static Vector SelectJumpTarget(bot_t &bot) {
 
       if (pPlayer == &edict || pPlayer->v.playerclass != 0 ||
           pPlayer->v.groupinfo != edict.v.groupinfo ||
-          pPlayer->v.origin.z - edict.v.origin.z > 128 ||
-          pPlayer->v.origin.z - edict.v.origin.z < 0 ||
           pPlayer->v.flags & (FL_ONGROUND | FL_PARTIALGROUND))
         continue;
 
-      Vector2D vecPlayer =
-          (pPlayer->v.origin - edict.v.origin).Make2D().Normalize();
-      Vector2D vecTarget = (target - edict.v.origin).Make2D().Normalize();
-
-      if (DotProduct(vecPlayer, vecTarget) > 0.9f) {
+      if (jump_target::IsBlocked(target, edict.v.origin, pPlayer->v.origin)) {
         target = Vector(0, 0, 0);
         break;
       }
@@ -529,7 +526,7 @@ void BotThink(bot_t *pBot) {
   }
 
   if (pEdict->v.flags & (FL_ONGROUND | FL_PARTIALGROUND)) {
-    pBot->vecTargetPos = SelectJumpTarget(*pBot);
+    pBot->vecTargetPos = QueryJumpTarget(*pBot);
 
     // move to the destination position
     if (pBot->vecTargetPos != Vector(0, 0, 0))
