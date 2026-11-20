@@ -45,6 +45,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bot.hpp"
 #include "goldsrc.hpp"
 #include "jump_target.hpp"
+#include "yaw_turn.hpp"
 
 bool b_observer_mode = false;
 bool b_botdontshoot = false;
@@ -113,49 +114,9 @@ void BotChangePitch(bot_t *pBot, float speed) {
 }
 
 void BotChangeYaw(bot_t *pBot, float speed) {
-  edict_t *pEdict = pBot->pEdict;
-  float current_180; // current +/- 180 degrees
-
-  ClampAngle(pEdict->v.ideal_yaw);
-  if (!std::isfinite(pEdict->v.v_angle.y))
-    pEdict->v.v_angle.y = 0.0f;
-
-  // turn from the current v_angle yaw to the ideal_yaw by selecting
-  // the quickest way to turn to face that direction
-  float current = pEdict->v.v_angle.y;
-
-  const float ideal = pEdict->v.ideal_yaw;
-
-  // find the difference in the current and ideal angle
-  const float diff = std::fabs(current - ideal);
-
-  // check if difference is less than the max degrees per turn
-  if (diff < speed)
-    speed = diff; // just need to turn a little bit (less than max)
-
-  // here we have four cases, both angle positive, one positive and
-  // the other negative, one negative and the other positive, or
-  // both negative.  handle each case separately...
-  if (current >= 0 && ideal >= 0) // both positive
-  {
-    if (current > ideal)
-      speed = -speed;
-  } else if (current >= 0 && ideal < 0) {
-    current_180 = current - 180;
-    if (current_180 <= ideal)
-      speed = -speed;
-  } else if (current < 0 && ideal >= 0) {
-    current_180 = current + 180;
-    if (current_180 <= ideal)
-      speed = -speed;
-  } else // (current < 0) && (ideal < 0)  both negative
-  {
-    if (current > ideal)
-      speed = -speed;
-  }
-
-  current += speed;
-  pEdict->v.v_angle.y = current;
+  auto &state = pBot->pEdict->v;
+  ClampAngle(state.ideal_yaw);
+  state.v_angle.y = TurnYaw(state.v_angle.y, state.ideal_yaw, speed);
 }
 
 // The next 2 functions are taken from POD-Bot source

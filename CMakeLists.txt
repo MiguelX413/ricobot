@@ -16,6 +16,7 @@ add_library(ricobot_mm MODULE
     h_export.cpp
     jump_target.cpp
     util.cpp
+    yaw_turn.cpp
 )
 set_target_properties(ricobot_mm PROPERTIES
     PREFIX ""
