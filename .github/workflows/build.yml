@@ -1,4 +1,4 @@
-name: Build
+name: RicoBot NG Build
 
 on: ["push", "workflow_dispatch"]
 
@@ -97,11 +97,31 @@ jobs:
       - uses: benjlevesque/short-sha@v5.0
         id: short-sha
 
+      - name: Stage license notices
+        id: notices
+        shell: bash
+        env:
+          BINARY_PATH: ${{ matrix.binary }}
+        run: |
+          test -f "$BINARY_PATH"
+          binary_dir="$(dirname "$BINARY_PATH")"
+          mkdir -p "$binary_dir/LICENSES" "$binary_dir/metamod"
+          cp LICENSES/*.txt "$binary_dir/LICENSES/"
+          cp metamod/GPL.txt "$binary_dir/metamod/"
+          cp LICENSE.md LICENSING.md CREDITS.md "$binary_dir/"
+          echo "directory=$binary_dir" >> "$GITHUB_OUTPUT"
+
       - name: Upload Binary
         uses: actions/upload-artifact@v7.0.2
         with:
           name: ricobot-${{ matrix.platform }}-${{ steps.short-sha.outputs.sha }}
-          path: ${{ matrix.binary }}
+          path: |
+            ${{ matrix.binary }}
+            ${{ steps.notices.outputs.directory }}/LICENSES/
+            ${{ steps.notices.outputs.directory }}/metamod/GPL.txt
+            ${{ steps.notices.outputs.directory }}/LICENSE.md
+            ${{ steps.notices.outputs.directory }}/LICENSING.md
+            ${{ steps.notices.outputs.directory }}/CREDITS.md
           if-no-files-found: error
 
       - name: Upload Debug Symbols

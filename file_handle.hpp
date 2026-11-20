@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 #ifndef RICOBOT_FILE_HANDLE_HPP
 #define RICOBOT_FILE_HANDLE_HPP
 

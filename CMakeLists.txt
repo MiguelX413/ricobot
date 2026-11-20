@@ -1,5 +1,10 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 cmake_minimum_required(VERSION 3.20)
-project(RicoBot LANGUAGES CXX)
+project(RicoBotNG
+    VERSION 0.1.0
+    DESCRIPTION "RicoBot Next Generation, a Metamod bot for Half-Life: Ricochet"
+    LANGUAGES CXX
+)
 
 add_library(ricobot_mm MODULE
     bot.cpp
@@ -23,6 +28,7 @@ target_include_directories(ricobot_mm PRIVATE
     metamod
 )
 target_compile_definitions(ricobot_mm PRIVATE
+    RICOBOT_NG_VERSION="${PROJECT_VERSION}"
     HAVE_STDINT_H
     $<$<CONFIG:Debug>:DEBUG>
     $<$<CONFIG:Debug>:_DEBUG>
@@ -44,7 +50,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(ricobot_mm PRIVATE ${CMAKE_DL_LIBS} m)
 elseif(WIN32 AND MSVC)
     if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
-        message(FATAL_ERROR "RicoBot requires x86. Configure Visual Studio with -A Win32.")
+        message(FATAL_ERROR "RicoBot NG requires x86. Configure Visual Studio with -A Win32.")
     endif()
     target_compile_definitions(ricobot_mm PRIVATE
         WIN32 _WINDOWS NOMINMAX _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_DEPRECATE
@@ -59,5 +65,5 @@ elseif(WIN32 AND MSVC)
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
     )
 else()
-    message(FATAL_ERROR "RicoBot's CMake build supports Linux and Windows with MSVC.")
+    message(FATAL_ERROR "RicoBot NG's CMake build supports Linux and Windows with MSVC.")
 endif()

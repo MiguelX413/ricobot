@@ -48,8 +48,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bot.hpp"
 #include "file_handle.hpp"
 
-char welcome_msg[] = "Welcome to Ricobot by Wei Mingzhi\n"
-                     "Visit http://yapb.bots-united.com\n"
+char welcome_msg[] = "Welcome to RicoBot NG v" RICOBOT_NG_VERSION "\n"
+                     "Based on Ricobot by Wei Mingzhi\n"
+                     "https://github.com/MiguelX413/ricobot\n"
                      "Compile date: " __DATE__ "\n";
 
 DLL_GLOBAL const Vector g_vecZero = Vector(0, 0, 0);
@@ -130,11 +131,11 @@ META_FUNCTIONS gMetaFunctionTable = {
 
 // Metamod's plugin info stores mutable pointers to these strings.
 static char plugin_interface[] = META_INTERFACE_VERSION;
-static char plugin_name[] = "Ricobot";
-static char plugin_version[] = "1.2";
+static char plugin_name[] = "RicoBot Next Generation";
+static char plugin_version[] = RICOBOT_NG_VERSION;
 static char plugin_date[] = __DATE__;
-static char plugin_author[] = "Wei Mingzhi";
-static char plugin_url[] = "http://yapb.bots-united.com";
+static char plugin_author[] = "Wei Mingzhi and MiguelX413";
+static char plugin_url[] = "https://github.com/MiguelX413/ricobot";
 static char plugin_log_tag[] = "RICOBOT";
 
 plugin_info_t Plugin_info = {plugin_interface, plugin_name,   plugin_version,
