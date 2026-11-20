@@ -254,8 +254,7 @@ BOOL ClientConnect(edict_t *pEntity, const char *pszName,
       // then kick one of the bots off the server...
       if (count > min_bots && min_bots != -1) {
         for (i = 0; i < std::ssize(bots); i++) {
-          if (bots[i].is_used) // is this slot used?
-          {
+          if (bots[i].is_used && bots[i].pEdict && !bots[i].pEdict->free) {
             char cmd[80];
             const int length = snprintf(cmd, sizeof(cmd), "kick \"%s\"\n",
                                         STRING(bots[i].pEdict->v.netname));
@@ -273,13 +272,24 @@ BOOL ClientConnect(edict_t *pEntity, const char *pszName,
 }
 
 void ClientDisconnect(edict_t *pEntity) {
-  if (gpGlobals->deathmatch) {
+  if (pEntity) {
+    if (listenserver_edict == pEntity) {
+      listenserver_edict = nullptr;
+      welcome_time = 0.0f;
+    }
+
     for (bot_t &bot : bots) {
+      if (bot.pBotEnemy == pEntity)
+        bot.pBotEnemy = nullptr;
+      if (bot.killer_edict == pEntity) {
+        bot.killer_edict = nullptr;
+        bot.b_bot_say_killed = false;
+      }
       if (bot.pEdict == pEntity) {
-        // someone kicked this bot off of the server...
-        bot.is_used = false;             // this slot is now free to use
-        bot.kick_time = gpGlobals->time; // save the kicked time
-        break;
+        bot.pEdict = nullptr;
+        if (bot.is_used)
+          bot.kick_time = gpGlobals->time;
+        bot.is_used = false;
       }
     }
   }
@@ -396,6 +406,12 @@ void StartFrame() {
       bot_cfg_pause_time = 0.0f;
       respawn_time = 0.0f;
       spawn_time_reset = false;
+      for (auto &bot : bots) {
+        bot.pEdict = nullptr;
+        bot.pBotEnemy = nullptr;
+        bot.killer_edict = nullptr;
+        bot.b_bot_say_killed = false;
+      }
       bot_cfg_fp = OpenMapConfig();
 
       if (bot_cfg_fp != nullptr) {

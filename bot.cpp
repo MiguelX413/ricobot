@@ -212,6 +212,7 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
     pBot->name.clear(); // name not set by server yet
 
     pBot->pEdict = BotEnt;
+    pBot->killer_edict = nullptr;
 
     BotSpawnInit(pBot);
 
