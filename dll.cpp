@@ -279,6 +279,29 @@ void ClientDisconnect(edict_t *pEntity) {
   RETURN_META(MRES_IGNORED);
 }
 
+static void SetBotToggle(bool &setting, std::optional<int> value) {
+  if (value)
+    setting = *value != 0;
+}
+
+static bool SetBotSetting(int &setting, std::optional<int> value, int minimum,
+                          int maximum) {
+  if (!value)
+    return true;
+  if (*value < minimum || *value > maximum)
+    return false;
+  setting = *value;
+  return true;
+}
+
+static bool SetBotSkill(std::optional<int> value) {
+  return SetBotSetting(default_bot_skill, value, 1, 5);
+}
+
+static bool SetBotChatPercent(std::optional<int> value) {
+  return SetBotSetting(bot_chat_percent, value, 0, 100);
+}
+
 void ClientCommand(edict_t *pEntity) {
   // only allow custom commands if deathmatch mode and NOT dedicated server and
   // client sending command is the listen server client...
@@ -294,14 +317,16 @@ void ClientCommand(edict_t *pEntity) {
       AddBotFromCommand(pEntity, arg1, arg2, /*pause_config=*/false);
 
       RETURN_META(MRES_SUPERCEDE);
-    } else if (FStrEq(pcmd, "observer")) {
-      if ((arg1 != nullptr) && (*arg1 != 0)) {
-        const int temp = atoi(arg1);
-        if (temp)
-          b_observer_mode = true;
-        else
-          b_observer_mode = false;
-      }
+    }
+
+    const auto console_value = [arg1]() -> std::optional<int> {
+      if (arg1 && *arg1)
+        return atoi(arg1);
+      return std::nullopt;
+    };
+
+    if (FStrEq(pcmd, "observer")) {
+      SetBotToggle(b_observer_mode, console_value());
 
       if (b_observer_mode)
         ClientPrint(pEntity, HUD_PRINTNOTIFY, "observer mode ENABLED\n");
@@ -310,27 +335,15 @@ void ClientCommand(edict_t *pEntity) {
 
       RETURN_META(MRES_SUPERCEDE);
     } else if (FStrEq(pcmd, "botskill")) {
-      if ((arg1 != nullptr) && (*arg1 != 0)) {
-        const int temp = atoi(arg1);
-
-        if (temp < 1 || temp > 5)
-          ClientPrint(pEntity, HUD_PRINTNOTIFY, "invalid botskill value!\n");
-        else
-          default_bot_skill = temp;
-      }
+      if (!SetBotSkill(console_value()))
+        ClientPrint(pEntity, HUD_PRINTNOTIFY, "invalid botskill value!\n");
 
       snprintf(msg, sizeof(msg), "botskill is %d\n", default_bot_skill);
       ClientPrint(pEntity, HUD_PRINTNOTIFY, msg);
 
       RETURN_META(MRES_SUPERCEDE);
     } else if (FStrEq(pcmd, "botdontshoot")) {
-      if ((arg1 != nullptr) && (*arg1 != 0)) {
-        const int temp = atoi(arg1);
-        if (temp)
-          b_botdontshoot = true;
-        else
-          b_botdontshoot = false;
-      }
+      SetBotToggle(b_botdontshoot, console_value());
 
       if (b_botdontshoot)
         ClientPrint(pEntity, HUD_PRINTNOTIFY, "botdontshoot ENABLED\n");
@@ -339,15 +352,9 @@ void ClientCommand(edict_t *pEntity) {
 
       RETURN_META(MRES_SUPERCEDE);
     } else if (FStrEq(pcmd, "bot_chat_percent")) {
-      if ((arg1 != nullptr) && (*arg1 != 0)) {
-        const int temp = atoi(arg1);
-
-        if ((temp < 0) || (temp > 100))
-          ClientPrint(pEntity, HUD_PRINTNOTIFY,
-                      "invalid bot_chat_percent value!\n");
-        else
-          bot_chat_percent = temp;
-      }
+      if (!SetBotChatPercent(console_value()))
+        ClientPrint(pEntity, HUD_PRINTNOTIFY,
+                    "invalid bot_chat_percent value!\n");
 
       snprintf(msg, sizeof(msg), "bot_chat_percent is %d\n", bot_chat_percent);
       ClientPrint(pEntity, HUD_PRINTNOTIFY, msg);
@@ -682,20 +689,17 @@ void ProcessBotCfgFile() {
   const auto value = ParseConfigInt(arg1);
 
   if (strcmp(cmd, "botskill") == 0) {
-    if (value && *value >= 1 && *value <= 5)
-      default_bot_skill = *value;
+    SetBotSkill(value);
     return;
   }
 
   if (strcmp(cmd, "observer") == 0) {
-    if (value)
-      b_observer_mode = *value != 0;
+    SetBotToggle(b_observer_mode, value);
     return;
   }
 
   if (strcmp(cmd, "botdontshoot") == 0) {
-    if (value)
-      b_botdontshoot = *value != 0;
+    SetBotToggle(b_botdontshoot, value);
     return;
   }
 
@@ -724,8 +728,7 @@ void ProcessBotCfgFile() {
   }
 
   if (strcmp(cmd, "bot_chat_percent") == 0) {
-    if (value && *value >= 0 && *value <= 100)
-      bot_chat_percent = *value;
+    SetBotChatPercent(value);
     return;
   }
 
