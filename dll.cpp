@@ -38,15 +38,14 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
 #include <algorithm>
-#include <cerrno>
 #include <cmath>
 #include <cstdlib>
-#include <limits>
 #include <optional>
 #include <utility>
 #include <vector>
 
 #include "bot.hpp"
+#include "bot_config.hpp"
 #include "bot_lifecycle.hpp"
 #include "file_handle.hpp"
 #include "goldsrc.hpp"
@@ -83,7 +82,7 @@ std::array<std::string, MAX_BOT_WHINE> bot_whine;
 int whine_count;
 int recent_bot_whine[5];
 
-void ProcessBotCfgFile();
+static void ProcessBotCfgFile();
 
 void ServerCommand();
 
@@ -523,109 +522,25 @@ C_DLLEXPORT int GetEntityAPI(DLL_FUNCTIONS *pFunctionTable,
   return TRUE;
 }
 
-static std::optional<int> ParseConfigInt(const char *argument) {
-  if (argument == nullptr)
-    return std::nullopt;
-
-  char *end = nullptr;
-  errno = 0;
-  const long value = std::strtol(argument, &end, 10);
-  if (end == argument || *end != '\0' || errno == ERANGE ||
-      value < std::numeric_limits<int>::min() ||
-      value > std::numeric_limits<int>::max())
-    return std::nullopt;
-
-  return static_cast<int>(value);
-}
-
-void ProcessBotCfgFile() {
-  constexpr std::size_t config_line_capacity = 256;
-  std::array<char, config_line_capacity> cmd_line;
-  std::size_t cmd_index = 0;
-  bool line_too_long = false;
-  char *cmd, *arg1, *arg2;
-
-  if (bot_cfg_pause_time > gpGlobals->time)
-    return;
-
-  if (bot_cfg_fp == nullptr)
-    return;
-
-  int ch = fgetc(bot_cfg_fp.get());
-
-  // skip any leading blanks
-  while (ch == ' ')
-    ch = fgetc(bot_cfg_fp.get());
-
-  while (ch != EOF && ch != '\r' && ch != '\n') {
-    if (ch == '\t') // convert tabs to spaces
-      ch = ' ';
-
-    if (cmd_index < cmd_line.size() - 1)
-      cmd_line[cmd_index++] = static_cast<char>(ch);
-    else
-      line_too_long = true;
-
-    ch = fgetc(bot_cfg_fp.get());
-
-    // skip multiple spaces in input file
-    while (cmd_index != 0 && cmd_line[cmd_index - 1] == ' ' && ch == ' ' &&
-           !line_too_long)
-      ch = fgetc(bot_cfg_fp.get());
-  }
-
-  if (ch == '\r') // is it a carriage return?
-  {
-    ch = fgetc(bot_cfg_fp.get()); // skip the linefeed
-  }
-
-  // if reached end of file, then close it
-  if (ch == EOF) {
+static void ProcessBotCfgFile() {
+  auto line = bot_config::ReadLine(*bot_cfg_fp);
+  if (line.at_end) {
     bot_cfg_fp.reset();
-
     bot_cfg_pause_time = 0.0f;
   }
-
-  if (line_too_long)
+  if (line.text[0] == '\0')
     return;
 
-  cmd_line[cmd_index] = 0; // terminate the command line
-  static std::array<char, config_line_capacity + 1> server_cmd;
-
-  // copy the command line to a server command buffer...
-  snprintf(server_cmd.data(), server_cmd.size(), "%s\n", cmd_line.data());
-
-  cmd_index = 0;
-  cmd = cmd_line.data();
-  arg1 = arg2 = nullptr;
-
-  // skip to blank or end of string...
-  while (cmd_line[cmd_index] != ' ' && cmd_line[cmd_index] != 0)
-    cmd_index++;
-
-  if (cmd_line[cmd_index] == ' ') {
-    cmd_line[cmd_index++] = 0;
-    arg1 = &cmd_line[cmd_index];
-
-    // skip to blank or end of string...
-    while (cmd_line[cmd_index] != ' ' && cmd_line[cmd_index] != 0)
-      cmd_index++;
-
-    if (cmd_line[cmd_index] == ' ') {
-      cmd_line[cmd_index++] = 0;
-      arg2 = &cmd_line[cmd_index];
-    }
-  }
-
-  if (cmd_line[0] == '#' || cmd_line[0] == 0)
-    return; // return if comment or blank line
+  const char *cmd = line.text.data();
+  const char *arg1 = line.first_arg ? cmd + *line.first_arg : nullptr;
+  const char *arg2 = line.second_arg ? cmd + *line.second_arg : nullptr;
 
   if (strcmp(cmd, "addbot") == 0) {
     AddBotFromCommand(nullptr, arg1, arg2, /*pause_config=*/true);
     return;
   }
 
-  const auto value = ParseConfigInt(arg1);
+  const auto value = bot_config::ParseInt(arg1);
 
   if (strcmp(cmd, "botskill") == 0) {
     SetBotSkill(value);
@@ -671,5 +586,5 @@ void ProcessBotCfgFile() {
     return;
   }
 
-  SERVER_COMMAND(server_cmd.data());
+  SERVER_COMMAND(line.server_command.data());
 }
