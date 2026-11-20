@@ -71,6 +71,7 @@ bool need_to_open_cfg = true;
 float bot_cfg_pause_time = 0.0f;
 float respawn_time = 0.0f;
 bool spawn_time_reset = false;
+static bool map_started = false;
 
 std::array<std::string, MAX_BOT_WHINE> bot_whine;
 int whine_count;
@@ -91,8 +92,10 @@ void GameDLLInit() {
   whine_count = 0;
 
   // initialize the bots array of structures...
-  for (auto &bot : bots)
+  for (auto &bot : bots) {
     bot = bot_t{};
+    bot.kick_time = -1.0f;
+  }
 
   std::ranges::fill(recent_bot_whine, -1);
 
@@ -211,6 +214,7 @@ int DispatchSpawn(edict_t *pent) {
 
     if (strcmp(pClassname, "worldspawn") == 0) {
       g_GameRules = true;
+      map_started = true;
 
       bot_cfg_pause_time = 0.0f;
       respawn_time = 0.0f;
@@ -387,14 +391,18 @@ void StartFrame() {
     int count;
 
     // if a new map has started then (MUST BE FIRST IN StartFrame)...
-    if (gpGlobals->time + 0.1f < previous_time) {
+    if (previous_time >= 0.0f &&
+        (map_started || gpGlobals->time + 0.1f < previous_time)) {
+      bot_cfg_pause_time = 0.0f;
+      respawn_time = 0.0f;
+      spawn_time_reset = false;
       bot_cfg_fp = OpenMapConfig();
 
       if (bot_cfg_fp != nullptr) {
         for (index = 0; index < std::ssize(bots); index++) {
           bots[index].is_used = false;
           bots[index].respawn_state = RespawnState::Unused;
-          bots[index].kick_time = 0.0f;
+          bots[index].kick_time = -1.0f;
         }
 
         if (IS_DEDICATED_SERVER())
@@ -409,7 +417,7 @@ void StartFrame() {
           if (count >= prev_num_bots) {
             bots[index].is_used = false;
             bots[index].respawn_state = RespawnState::Unused;
-            bots[index].kick_time = 0.0f;
+            bots[index].kick_time = -1.0f;
           }
 
           if (bots[index].is_used) // is this slot used?
@@ -419,11 +427,13 @@ void StartFrame() {
           }
 
           // check for any bots that were very recently kicked...
-          if (bots[index].kick_time + 5.0f > previous_time) {
+          const float kick_time = bots[index].kick_time;
+          if (!bots[index].is_used && kick_time >= 0.0f &&
+              kick_time <= previous_time && kick_time + 5.0f > previous_time) {
             bots[index].respawn_state = RespawnState::Pending;
             count++;
-          } else
-            bots[index].kick_time = 0.0f; // reset to prevent false spawns later
+          }
+          bots[index].kick_time = -1.0f;
         }
 
         // set the respawn time
@@ -435,6 +445,7 @@ void StartFrame() {
 
       bot_check_time = gpGlobals->time + 30.0f;
     }
+    map_started = false;
 
     if (!IS_DEDICATED_SERVER()) {
       if (listenserver_edict != nullptr && welcome_sent == false &&
