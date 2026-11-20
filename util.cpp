@@ -180,8 +180,11 @@ edict_t *DBG_EntOfVars(const entvars_t *pev) {
 #endif // DEBUG
 
 int UTIL_GetBotIndex(edict_t *pEdict) {
+  if (!pEdict || pEdict->free)
+    return -1;
+
   for (int index = 0; index < std::ssize(bots); index++) {
-    if (bots[index].pEdict == pEdict) {
+    if (bots[index].is_used && bots[index].pEdict == pEdict) {
       return index;
     }
   }

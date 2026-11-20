@@ -37,51 +37,64 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // bot_client.cpp
 //
 
+#include <iterator>
+
 #include "bot.hpp"
 
-// This message gets sent when the bots get killed
-void BotClient_Ricochet_DeathMsg(void *p, int bot_index) {
-  static int state = 0;
-  static int killer_index;
-  static int victim_index;
-  static edict_t *victim_edict;
-  static int index;
+static bot_t *ActiveBotAt(int index) {
+  if (index < 0 || index >= std::ssize(bots))
+    return nullptr;
+  auto &bot = bots[index];
+  return bot.is_used && bot.pEdict && !bot.pEdict->free ? &bot : nullptr;
+}
 
-  if (state == 0) {
-    state++;
-    killer_index = *static_cast<int *>(p); // ENTINDEX() of killer
-  } else if (state == 1) {
-    state++;
-    victim_index = *static_cast<int *>(p); // ENTINDEX() of victim
-  } else if (state == 2) {
-    state = 0;
+void BotClient_Ricochet_DeathMsg(const int *value, int) {
+  static int fields = 0;
+  static int killer_index = 0;
+  if (!value) {
+    fields = 0;
+    killer_index = 0;
+    return;
+  }
 
-    victim_edict = INDEXENT(victim_index);
-    index = UTIL_GetBotIndex(victim_edict);
+  if (fields == 0) {
+    killer_index = *value;
+    ++fields;
+    return;
+  }
+  if (fields != 1)
+    return;
+  ++fields;
 
-    // is this message about a bot being killed?
-    if (index != -1) {
-      // bot killed by world (worldspawn) or killed self?
-      if (killer_index == 0 || killer_index == victim_index)
-        bots[index].killer_edict = nullptr;
-      else // store edict of player that killed this bot...
-        bots[index].killer_edict = INDEXENT(killer_index);
-    }
+  const int victim_index = *value;
+  if (victim_index < 1 || victim_index > gpGlobals->maxClients)
+    return;
+
+  if (auto *victim = UTIL_GetBotPointer(INDEXENT(victim_index))) {
+    victim->killer_edict = killer_index >= 1 &&
+                                   killer_index <= gpGlobals->maxClients &&
+                                   killer_index != victim_index
+                               ? INDEXENT(killer_index)
+                               : nullptr;
   }
 }
 
-// This message is sent whenever ammo amounts are adjusted (up or down).
-void BotClient_Ricochet_AmmoX(void *p, int bot_index) {
-  static int state = 0;
-  if (state == 0)
-    state++;
-  else if (state == 1) {
-    state = 0;
-    bots[bot_index].disc_number = *static_cast<int *>(p); // store it away
+void BotClient_Ricochet_AmmoX(const int *value, int bot_index) {
+  static int fields = 0;
+  if (!value) {
+    fields = 0;
+    return;
   }
+
+  if (fields >= 2 || ++fields != 2)
+    return;
+  if (auto *bot = ActiveBotAt(bot_index))
+    bot->disc_number = *value;
 }
 
-// This message is sent whenever a player gets or loses powerup(s).
-void BotClient_Ricochet_Powerup(void *p, int bot_index) {
-  bots[bot_index].m_iPowerups = *static_cast<int *>(p);
+void BotClient_Ricochet_Powerup(const int *value, int bot_index) {
+  if (value) {
+    if (auto *bot = ActiveBotAt(bot_index))
+      bot->m_iPowerups = *value;
+  }
 }

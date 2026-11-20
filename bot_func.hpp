@@ -49,9 +49,9 @@ void BotChangeYaw(bot_t *pBot, float speed);
 edict_t *BotFindEnemy(bot_t *pBot);
 void BotShootAtEnemy(bot_t *pBot);
 
-void BotClient_Ricochet_DeathMsg(void *p, int bot_index);
-void BotClient_Ricochet_AmmoX(void *p, int bot_index);
-void BotClient_Ricochet_Powerup(void *p, int bot_index);
+void BotClient_Ricochet_DeathMsg(const int *value, int bot_index);
+void BotClient_Ricochet_AmmoX(const int *value, int bot_index);
+void BotClient_Ricochet_Powerup(const int *value, int bot_index);
 
 edict_t *UTIL_FindEntityInSphere(edict_t *pentStart, const Vector &vecCenter,
                                  float flRadius);
