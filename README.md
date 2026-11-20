@@ -46,9 +46,13 @@ appropriate. Check `meta list` after starting the server.
 - Bot names and chat can be customized with `bot_names.txt` and
   `bot_whine.txt` in the Ricochet game directory.
 - Bots added at startup stay asleep until a human player joins.
-- After 10 minutes without human player input, RicoBot kicks and recreates
-  its bots on the current map to reset their scores. The replacements stay
+- By default, after 10 minutes without human player input, RicoBot kicks
+  and recreates its bots on the current map to reset their scores. The replacements stay
   asleep until a human player joins. Human scores are preserved.
+- Set `ricobot_sleep_minutes 15` in the server console or `server.cfg` to
+  change the idle timeout. Fractional minutes are supported. Set it to `0`
+  to disable the inactivity timeout. Bots still start asleep and wait for
+  a human player to join.
 
 ## Project information
 

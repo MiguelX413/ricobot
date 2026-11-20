@@ -40,6 +40,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <iterator>
 #include <limits>
@@ -76,7 +77,10 @@ float respawn_time = 0.0f;
 bool spawn_time_reset = false;
 static bool map_started = false;
 using IdleClock = std::chrono::steady_clock;
-static constexpr auto sleep_timeout = std::chrono::minutes{10};
+static char sleep_minutes_name[] = "ricobot_sleep_minutes";
+static char sleep_minutes_default[] = "10";
+static cvar_t sleep_minutes{sleep_minutes_name, sleep_minutes_default,
+                            FCVAR_EXTDLL, 10.0f, nullptr};
 static IdleClock::time_point last_player_activity;
 // Startup still runs bot.cfg and population setup before the first human joins.
 enum class BotActivity { Startup, Awake, Idle };
@@ -95,6 +99,13 @@ static IdleClock::time_point sleep_kick_deadline;
 static bool IsHumanClient(const edict_t *player) {
   return player && !player->free && (player->v.flags & FL_CLIENT) &&
          !(player->v.flags & (FL_FAKECLIENT | FL_PROXY));
+}
+
+static bool IdleTimeoutReached() {
+  using Minutes = std::chrono::duration<double, std::ratio<60>>;
+  const float timeout = CVAR_GET_FLOAT(sleep_minutes_name);
+  return std::isfinite(timeout) && timeout > 0.0f &&
+         IdleClock::now() - last_player_activity >= Minutes{timeout};
 }
 
 static void RecordPlayerActivity() { last_player_activity = IdleClock::now(); }
@@ -118,6 +129,8 @@ void GameDLLInit() {
   // Register server command
   static char command_name[] = "bot";
   (*g_engfuncs.pfnAddServerCommand)(command_name, ServerCommand);
+  if (!CVAR_GET_POINTER(sleep_minutes_name))
+    CVAR_REGISTER(&sleep_minutes);
 
   whine_count = 0;
 
@@ -601,7 +614,7 @@ void StartFrame() {
     map_started = false;
 
     if (bot_activity == BotActivity::Awake && sleeping_bots.empty() &&
-        IdleClock::now() - last_player_activity >= sleep_timeout)
+        IdleTimeoutReached())
       BeginBotSleep();
 
     if (!sleeping_bots.empty()) {
