@@ -39,16 +39,15 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <algorithm>
 #include <cerrno>
-#include <chrono>
 #include <cmath>
 #include <cstdlib>
-#include <iterator>
 #include <limits>
 #include <optional>
 #include <utility>
 #include <vector>
 
 #include "bot.hpp"
+#include "bot_lifecycle.hpp"
 #include "file_handle.hpp"
 #include "goldsrc.hpp"
 #include "usercmd.h"
@@ -61,11 +60,8 @@ char welcome_msg[] = "Welcome to RicoBot NG v" RICOBOT_NG_VERSION "\n"
 DLL_GLOBAL const Vector g_vecZero = Vector(0, 0, 0);
 
 int default_bot_skill = 2;
-float bot_check_time = 30.0f;
 int min_bots = -1;
 int max_bots = -1;
-int num_bots = 0;
-int prev_num_bots = 0;
 bool g_GameRules = false;
 edict_t *listenserver_edict = nullptr;
 float welcome_time = 0.0;
@@ -74,76 +70,35 @@ bool welcome_sent = false;
 static FileHandle bot_cfg_fp;
 bool need_to_open_cfg = true;
 float bot_cfg_pause_time = 0.0f;
-float respawn_time = 0.0f;
 bool spawn_time_reset = false;
 static bool map_started = false;
-using IdleClock = std::chrono::steady_clock;
-static char sleep_minutes_name[] = "ricobot_sleep_minutes";
-static char sleep_minutes_default[] = "10";
-static cvar_t sleep_minutes{sleep_minutes_name, sleep_minutes_default,
-                            FCVAR_EXTDLL, 10.0f, nullptr};
-static IdleClock::time_point last_player_activity;
-// Startup still runs bot.cfg and population setup before the first human joins.
-enum class BotActivity { Startup, Awake, Idle };
-static BotActivity bot_activity = BotActivity::Startup;
 static std::vector<std::optional<std::array<float, 3>>> player_view_angles;
-
-struct SleepingBot {
-  edict_t *disconnecting_client;
-  std::string name;
-  int skill;
-};
-static std::vector<SleepingBot> sleeping_bots;
-static IdleClock::time_point next_sleep_recreation;
-static IdleClock::time_point sleep_kick_deadline;
 
 static bool IsHumanClient(const edict_t *player) {
   return player && !player->free && (player->v.flags & FL_CLIENT) &&
          !(player->v.flags & (FL_FAKECLIENT | FL_PROXY));
 }
 
-static bool IdleTimeoutReached() {
-  using Minutes = std::chrono::duration<double, std::ratio<60>>;
-  const float timeout = CVAR_GET_FLOAT(sleep_minutes_name);
-  return std::isfinite(timeout) && timeout > 0.0f &&
-         IdleClock::now() - last_player_activity >= Minutes{timeout};
-}
-
-static void RecordPlayerActivity() { last_player_activity = IdleClock::now(); }
-
 std::array<std::string, MAX_BOT_WHINE> bot_whine;
 int whine_count;
 int recent_bot_whine[5];
 
-void BotNameInit();
 void ProcessBotCfgFile();
 
 void ServerCommand();
 
 void GameDLLInit() {
   char filename[256];
-  last_player_activity = IdleClock::now();
-  bot_activity = BotActivity::Startup;
   player_view_angles.clear();
-  sleeping_bots.clear();
 
   // Register server command
   static char command_name[] = "bot";
   (*g_engfuncs.pfnAddServerCommand)(command_name, ServerCommand);
-  if (!CVAR_GET_POINTER(sleep_minutes_name))
-    CVAR_REGISTER(&sleep_minutes);
+  bot_lifecycle::Initialize();
 
   whine_count = 0;
 
-  // initialize the bots array of structures...
-  for (auto &bot : bots) {
-    bot = bot_t{};
-    bot.kick_time = -1.0f;
-  }
-
   std::ranges::fill(recent_bot_whine, -1);
-
-  BotNameInit();
 
   if (!UTIL_BuildFileName(filename, "bot_whine.txt", nullptr))
     return;
@@ -226,13 +181,13 @@ C_DLLEXPORT int Meta_Detach(PLUG_LOADTIME, PL_UNLOAD_REASON) { return TRUE; }
 
 static void AddBotFromCommand(edict_t *requester, const char *name,
                               const char *skill, bool pause_config) {
-  if (bot_activity == BotActivity::Idle)
+  if (!bot_lifecycle::CanAddBot())
     return;
   BotCreate(requester, name, skill);
   // Give the engine time to initialize the bot before processing more config.
   if (pause_config)
     bot_cfg_pause_time = gpGlobals->time + 2.0f;
-  bot_check_time = gpGlobals->time + 5.0f;
+  bot_lifecycle::DelayPopulation(5.0f);
 }
 
 static int NormalizeBotLimit(int value) {
@@ -264,13 +219,8 @@ int DispatchSpawn(edict_t *pent) {
       player_view_angles.clear();
 
       bot_cfg_pause_time = 0.0f;
-      respawn_time = 0.0f;
       spawn_time_reset = false;
-
-      prev_num_bots = num_bots;
-      num_bots = 0;
-
-      bot_check_time = gpGlobals->time + 30.0f;
+      bot_lifecycle::OnWorldSpawn();
     }
   }
 
@@ -287,31 +237,7 @@ BOOL ClientConnect(edict_t *pEntity, const char *pszName,
 
     // check if this is NOT a bot joining the server...
     if (strcmp(pszAddress, "127.0.0.1") != 0) {
-      int count = 0;
-      int i;
-      // don't try to add bots for 60 seconds, give client time to get added
-      bot_check_time = gpGlobals->time + 60.0f;
-
-      for (i = 0; i < std::ssize(bots); i++) {
-        if (bots[i].is_used) // count the number of bots in use
-          count++;
-      }
-
-      // if there are currently more than the minimum number of bots running
-      // then kick one of the bots off the server...
-      if (count > min_bots && min_bots != -1) {
-        for (i = 0; i < std::ssize(bots); i++) {
-          if (bots[i].is_used && bots[i].pEdict && !bots[i].pEdict->free) {
-            char cmd[80];
-            const int length = snprintf(cmd, sizeof(cmd), "kick \"%s\"\n",
-                                        STRING(bots[i].pEdict->v.netname));
-            if (length >= 0 && static_cast<std::size_t>(length) < sizeof(cmd)) {
-              SERVER_COMMAND(cmd); // kick the bot using (kick "name")
-            }
-            break;
-          }
-        }
-      }
+      bot_lifecycle::HumanConnecting(min_bots);
     }
   }
 
@@ -321,12 +247,7 @@ BOOL ClientConnect(edict_t *pEntity, const char *pszName,
 static void ClientPutInServer(edict_t *player) {
   if (gpGlobals->deathmatch && player && !player->free &&
       !(player->v.flags & (FL_FAKECLIENT | FL_PROXY))) {
-    RecordPlayerActivity();
-    if (bot_activity != BotActivity::Awake) {
-      bot_activity = BotActivity::Awake;
-      for (auto &bot : bots)
-        bot.fLastRunPlayerMoveTime = gpGlobals->time;
-    }
+    bot_lifecycle::HumanJoined();
   }
 
   RETURN_META(MRES_IGNORED);
@@ -344,30 +265,7 @@ void ClientDisconnect(edict_t *pEntity) {
       welcome_time = 0.0f;
     }
 
-    bool sleep_reset = false;
-    for (auto &bot : sleeping_bots) {
-      if (bot.disconnecting_client == pEntity) {
-        bot.disconnecting_client = nullptr;
-        sleep_reset = true;
-        break;
-      }
-    }
-
-    for (bot_t &bot : bots) {
-      if (bot.pBotEnemy == pEntity)
-        bot.pBotEnemy = nullptr;
-      if (bot.killer_edict == pEntity) {
-        bot.killer_edict = nullptr;
-        bot.b_bot_say_killed = false;
-      }
-      if (bot.pEdict == pEntity) {
-        bot.pEdict = nullptr;
-        if (bot.is_used)
-          bot.kick_time = sleep_reset ? -1.0f : gpGlobals->time;
-        bot.is_used = false;
-        bot.respawn_state = RespawnState::Unused;
-      }
-    }
+    bot_lifecycle::ClientDisconnected(*pEntity);
   }
 
   RETURN_META(MRES_IGNORED);
@@ -399,7 +297,7 @@ static bool SetBotChatPercent(std::optional<int> value) {
 void ClientCommand(edict_t *pEntity) {
   if (gpGlobals->deathmatch && IsHumanClient(pEntity) && CMD_ARGC() > 1 &&
       (FStrEq(CMD_ARGV(0), "say") || FStrEq(CMD_ARGV(0), "say_team")))
-    RecordPlayerActivity();
+    bot_lifecycle::RecordPlayerActivity();
 
   // only allow custom commands if deathmatch mode and NOT dedicated server and
   // client sending command is the listen server client...
@@ -413,7 +311,7 @@ void ClientCommand(edict_t *pEntity) {
 
     if (FStrEq(pcmd, "addbot")) {
       if (IsHumanClient(pEntity))
-        RecordPlayerActivity();
+        bot_lifecycle::RecordPlayerActivity();
       AddBotFromCommand(pEntity, arg1, arg2, /*pause_config=*/false);
 
       RETURN_META(MRES_SUPERCEDE);
@@ -491,139 +389,34 @@ static void CmdStart(const edict_t *player, const usercmd_t *cmd,
 
       if (turned || cmd->buttons || cmd->impulse || cmd->weaponselect ||
           cmd->forwardmove || cmd->sidemove || cmd->upmove)
-        RecordPlayerActivity();
+        bot_lifecycle::RecordPlayerActivity();
     }
   }
   RETURN_META(MRES_IGNORED);
 }
 
-static void BeginBotSleep() {
-  bot_activity = BotActivity::Idle;
-  next_sleep_recreation = IdleClock::now();
-  sleep_kick_deadline = next_sleep_recreation + std::chrono::seconds{5};
-
-  for (const auto &bot : bots) {
-    if (!bot.is_used || !bot.pEdict || bot.pEdict->free)
-      continue;
-
-    const int user_id = GETPLAYERUSERID(bot.pEdict);
-    if (user_id <= 0) {
-      LOG_ERROR(PLID, "Could not reset sleeping bot: missing client user ID");
-      continue;
-    }
-
-    sleeping_bots.push_back(
-        {bot.pEdict, STRING(bot.pEdict->v.netname), bot.bot_skill + 1});
-    char command[32];
-    snprintf(command, sizeof(command), "kick #%d\n", user_id);
-    SERVER_COMMAND(command);
-  }
-}
-
-static void RecreateSleepingBots() {
-  const auto now = IdleClock::now();
-  const auto waiting_for_disconnect = [](const SleepingBot &bot) {
-    return bot.disconnecting_client != nullptr;
-  };
-  if (std::ranges::any_of(sleeping_bots, waiting_for_disconnect)) {
-    if (now < sleep_kick_deadline)
-      return;
-    std::erase_if(sleeping_bots, waiting_for_disconnect);
-    LOG_ERROR(PLID, "Timed out waiting for sleeping bots to disconnect");
-  }
-  if (sleeping_bots.empty() || now < next_sleep_recreation)
-    return;
-
-  auto bot = std::move(sleeping_bots.back());
-  sleeping_bots.pop_back();
-  const std::string skill = std::to_string(bot.skill);
-  BotCreate(nullptr, bot.name.c_str(), skill.c_str());
-  next_sleep_recreation = now + std::chrono::seconds{2};
-}
-
 void StartFrame() {
   if (gpGlobals->deathmatch) {
-    static int i, index;
     static float previous_time = -1.0f;
-
-    int count;
 
     // if a new map has started then (MUST BE FIRST IN StartFrame)...
     if (previous_time >= 0.0f &&
         (map_started || gpGlobals->time + 0.1f < previous_time)) {
       bot_cfg_pause_time = 0.0f;
-      respawn_time = 0.0f;
       spawn_time_reset = false;
-      sleeping_bots.clear();
-      for (auto &bot : bots) {
-        bot.pEdict = nullptr;
-        bot.pBotEnemy = nullptr;
-        bot.killer_edict = nullptr;
-        bot.b_bot_say_killed = false;
-      }
       bot_cfg_fp = OpenMapConfig();
+      bot_lifecycle::OnMapChange(previous_time, bot_cfg_fp != nullptr);
 
       if (bot_cfg_fp != nullptr) {
-        for (index = 0; index < std::ssize(bots); index++) {
-          bots[index].is_used = false;
-          bots[index].respawn_state = RespawnState::Unused;
-          bots[index].kick_time = -1.0f;
-        }
-
         if (IS_DEDICATED_SERVER())
           bot_cfg_pause_time = gpGlobals->time + 5.0f;
         else
           bot_cfg_pause_time = gpGlobals->time + 20.0f;
-      } else {
-        count = 0;
-
-        // mark the bots as needing to be respawned...
-        for (index = 0; index < std::ssize(bots); index++) {
-          if (count >= prev_num_bots) {
-            bots[index].is_used = false;
-            bots[index].respawn_state = RespawnState::Unused;
-            bots[index].kick_time = -1.0f;
-          }
-
-          if (bots[index].is_used) // is this slot used?
-          {
-            bots[index].respawn_state = RespawnState::Pending;
-            count++;
-          }
-
-          // check for any bots that were very recently kicked...
-          const float kick_time = bots[index].kick_time;
-          if (!bots[index].is_used && kick_time >= 0.0f &&
-              kick_time <= previous_time && kick_time + 5.0f > previous_time) {
-            bots[index].respawn_state = RespawnState::Pending;
-            count++;
-          } else if (!bots[index].is_used) {
-            bots[index].respawn_state = RespawnState::Unused;
-          }
-          bots[index].kick_time = -1.0f;
-        }
-
-        // set the respawn time
-        if (IS_DEDICATED_SERVER())
-          respawn_time = gpGlobals->time + 5.0f;
-        else
-          respawn_time = gpGlobals->time + 20.0f;
       }
-
-      bot_check_time = gpGlobals->time + 30.0f;
     }
     map_started = false;
 
-    if (bot_activity == BotActivity::Awake && sleeping_bots.empty() &&
-        IdleTimeoutReached())
-      BeginBotSleep();
-
-    if (!sleeping_bots.empty()) {
-      RecreateSleepingBots();
-      previous_time = gpGlobals->time;
-      RETURN_META(MRES_IGNORED);
-    }
-    if (bot_activity == BotActivity::Idle) {
+    if (bot_lifecycle::PauseFrame()) {
       previous_time = gpGlobals->time;
       RETURN_META(MRES_IGNORED);
     }
@@ -665,46 +458,8 @@ void StartFrame() {
       }
     }
 
-    count = 0;
-
-    for (auto &bot : bots) {
-      if (bot.is_used && bot.respawn_state == RespawnState::Idle) {
-        if (bot_activity == BotActivity::Awake)
-          BotThink(&bot);
-
-        count++;
-      }
-    }
-
-    if (count > num_bots)
-      num_bots = count;
-
-    // are we currently respawning bots and is it time to spawn one yet?
-    if (respawn_time > 1.0f && respawn_time <= gpGlobals->time) {
-      index = 0;
-
-      // find bot needing to be respawned...
-      while (index < std::ssize(bots) &&
-             bots[index].respawn_state != RespawnState::Pending)
-        index++;
-
-      if (index < std::ssize(bots)) {
-        bots[index].respawn_state = RespawnState::InProgress;
-        bots[index].is_used = false; // free up this slot
-
-        // respawn 1 bot then wait a while (otherwise engine crashes)
-        char c_skill[2];
-        snprintf(c_skill, sizeof(c_skill), "%d", bots[index].bot_skill + 1);
-        BotCreate(nullptr, bots[index].name.c_str(), c_skill);
-        if (bots[index].respawn_state == RespawnState::InProgress)
-          bots[index].respawn_state = RespawnState::Unused;
-
-        respawn_time = gpGlobals->time + 2.0f; // set next respawn time
-
-        bot_check_time = gpGlobals->time + 5.0f;
-      } else
-        respawn_time = 0.0f;
-    }
+    bot_lifecycle::Think();
+    bot_lifecycle::Respawn();
 
     if (g_GameRules) {
       if (need_to_open_cfg) // have we open bot.cfg file yet?
@@ -729,8 +484,7 @@ void StartFrame() {
           if (goldsrc::IsAlive(*listenserver_edict)) {
             spawn_time_reset = true;
 
-            if (respawn_time >= 1.0f)
-              respawn_time = std::fmin(respawn_time, gpGlobals->time + 1.0f);
+            bot_lifecycle::ExpediteRespawn();
 
             if (bot_cfg_pause_time >= 1.0f)
               bot_cfg_pause_time =
@@ -746,22 +500,7 @@ void StartFrame() {
       }
     }
 
-    // check if time to see if a bot needs to be created...
-    if (bot_check_time < gpGlobals->time) {
-      count = 0;
-      bot_check_time = gpGlobals->time + 5.0f;
-
-      for (i = 1; i <= gpGlobals->maxClients; i++) {
-        const edict_t *pPlayer = goldsrc::ClientEdict(i);
-        if (pPlayer && pPlayer->v.flags & (FL_CLIENT | FL_FAKECLIENT))
-          count++;
-      }
-
-      // if there are currently less than the maximum number of "players"
-      // then add another bot using the default skill level...
-      if (count < max_bots && max_bots != -1)
-        BotCreate(nullptr, nullptr, nullptr);
-    }
+    bot_lifecycle::Populate(max_bots);
 
     previous_time = gpGlobals->time;
   }

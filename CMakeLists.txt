@@ -9,6 +9,7 @@ project(RicoBotNG
 add_library(ricobot_mm MODULE
     bot.cpp
     bot_client.cpp
+    bot_lifecycle.cpp
     dll.cpp
     engine.cpp
     h_export.cpp
