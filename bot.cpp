@@ -39,6 +39,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <algorithm>
 #include <iterator>
+#include <limits>
 #include <string_view>
 
 #include "bot.hpp"
@@ -55,8 +56,8 @@ static std::array<std::string, MAX_BOT_NAMES> bot_names;
 
 void BotSpawnInit(bot_t *pBot) {
   // Fix by Cheeseh (RCBot)
-  // float fUpdateTime = gpGlobals->time;
-  // float fLastRunPlayerMoveTime = gpGlobals->time - 0.1f;
+  pBot->fUpdateTime = gpGlobals->time;
+  pBot->fLastRunPlayerMoveTime = gpGlobals->time;
 
   // pBot->msecnum = 0;
   // pBot->msecdel = 0.0;
@@ -486,12 +487,20 @@ void BotShootAtEnemy(bot_t *pBot) {
 
 void BotThink(bot_t *pBot) {
   // Fix by Cheeseh (RCBot)
-  const float msecval =
-      (gpGlobals->time - pBot->fLastRunPlayerMoveTime) * 1000.0f;
-  pBot->fLastRunPlayerMoveTime = gpGlobals->time;
+  const float now = gpGlobals->time;
+  const float last_move_time = pBot->fLastRunPlayerMoveTime;
+  pBot->fLastRunPlayerMoveTime = now;
+
+  constexpr float max_move_msec = std::numeric_limits<byte>::max();
+  const float elapsed_msec = std::isfinite(now) && std::isfinite(last_move_time)
+                                 ? (now - last_move_time) * 1000.0f
+                                 : 0.0f;
+  // A map clock reset yields zero elapsed time for this move.
+  const auto msecval =
+      static_cast<byte>(std::clamp(elapsed_msec, 0.0f, max_move_msec));
 
   constexpr float fUpdateInterval = 1.0f / 60.0f; // update at 60 fps
-  pBot->fUpdateTime = gpGlobals->time + fUpdateInterval;
+  pBot->fUpdateTime = now + fUpdateInterval;
 
   Vector v_diff; // vector from previous to current location
   TraceResult tr;
