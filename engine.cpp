@@ -38,16 +38,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
 #include "bot.hpp"
+#include "bot_message.hpp"
 
-static void (*botMsgFunction)(const int *, int) = nullptr;
-static int botMsgIndex = -1;
-
-static void ResetBotMessage() {
-  if (botMsgFunction)
-    botMsgFunction(nullptr, botMsgIndex);
-  botMsgFunction = nullptr;
-  botMsgIndex = -1;
-}
+static BotMessage bot_message;
 
 void pfnClientCommand(edict_t *pEdict, char *szFmt, ...) {
   if (!pEdict || !(pEdict->v.flags & FL_FAKECLIENT))
@@ -57,34 +50,18 @@ void pfnClientCommand(edict_t *pEdict, char *szFmt, ...) {
 
 void pfnMessageBegin(int msg_dest, int msg_type, const float *pOrigin,
                      edict_t *ed) {
-  ResetBotMessage();
-
-  if (gpGlobals->deathmatch && msg_type > 0) {
-    botMsgIndex = UTIL_GetBotIndex(ed);
-    const bool broadcast = msg_dest == MSG_BROADCAST || msg_dest == MSG_ALL;
-
-    if ((broadcast || botMsgIndex >= 0) &&
-        msg_type == GET_USER_MSG_ID(PLID, "DeathMsg", nullptr))
-      botMsgFunction = BotClient_Ricochet_DeathMsg;
-    else if (botMsgIndex >= 0) {
-      if (msg_type == GET_USER_MSG_ID(PLID, "AmmoX", nullptr))
-        botMsgFunction = BotClient_Ricochet_AmmoX;
-      else if (msg_type == GET_USER_MSG_ID(PLID, "Powerup", nullptr))
-        botMsgFunction = BotClient_Ricochet_Powerup;
-    }
-  }
-
+  bot_message = BotMessage(msg_dest, msg_type, ed);
   RETURN_META(MRES_IGNORED);
 }
 
 void pfnMessageEnd() {
-  ResetBotMessage();
+  bot_message = BotMessage{};
   RETURN_META(MRES_IGNORED);
 }
 
 static void ParseBotMessageInteger(int value) {
-  if (gpGlobals->deathmatch && botMsgFunction)
-    botMsgFunction(&value, botMsgIndex);
+  if (gpGlobals->deathmatch)
+    bot_message.WriteInteger(value);
 }
 
 void pfnWriteByte(int iValue) {

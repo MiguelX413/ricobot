@@ -40,6 +40,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iterator>
 
 #include "bot.hpp"
+#include "bot_message.hpp"
 #include "goldsrc.hpp"
 
 static bot_t *ActiveBotAt(int index) {
@@ -49,48 +50,50 @@ static bot_t *ActiveBotAt(int index) {
   return bot.is_used && bot.pEdict && !bot.pEdict->free ? &bot : nullptr;
 }
 
-void BotClient_Ricochet_DeathMsg(const int *value, int) {
-  static int fields = 0;
-  static int killer_index = 0;
-  if (!value) {
-    fields = 0;
-    killer_index = 0;
+BotMessage::BotMessage(int destination, int message_id, edict_t *recipient) {
+  if (!gpGlobals->deathmatch || message_id <= 0)
     return;
-  }
 
-  if (fields == 0) {
-    killer_index = *value;
-    ++fields;
-    return;
-  }
-  if (fields != 1)
-    return;
-  ++fields;
+  bot_index_ = UTIL_GetBotIndex(recipient);
+  const bool broadcast = destination == MSG_BROADCAST || destination == MSG_ALL;
 
-  const int victim_index = *value;
-  if (auto *victim = UTIL_GetBotPointer(goldsrc::ClientEdict(victim_index))) {
-    victim->killer_edict = killer_index != victim_index
-                               ? goldsrc::ClientEdict(killer_index)
-                               : nullptr;
+  if ((broadcast || bot_index_ >= 0) &&
+      message_id == GET_USER_MSG_ID(PLID, "DeathMsg", nullptr)) {
+    type_ = Type::Death;
+  } else if (bot_index_ >= 0) {
+    if (message_id == GET_USER_MSG_ID(PLID, "AmmoX", nullptr))
+      type_ = Type::Ammo;
+    else if (message_id == GET_USER_MSG_ID(PLID, "Powerup", nullptr))
+      type_ = Type::Powerup;
   }
 }
 
-void BotClient_Ricochet_AmmoX(const int *value, int bot_index) {
-  static int fields = 0;
-  if (!value) {
-    fields = 0;
+void BotMessage::WriteInteger(int value) {
+  switch (type_) {
+  case Type::Ignored:
     return;
-  }
-
-  if (fields >= 2 || ++fields != 2)
+  case Type::Death:
+    if (fields_ == 0) {
+      killer_index_ = value;
+      ++fields_;
+    } else if (fields_ == 1) {
+      ++fields_;
+      if (auto *victim = UTIL_GetBotPointer(goldsrc::ClientEdict(value))) {
+        victim->killer_edict = killer_index_ != value
+                                   ? goldsrc::ClientEdict(killer_index_)
+                                   : nullptr;
+      }
+    }
     return;
-  if (auto *bot = ActiveBotAt(bot_index))
-    bot->disc_number = *value;
-}
-
-void BotClient_Ricochet_Powerup(const int *value, int bot_index) {
-  if (value) {
-    if (auto *bot = ActiveBotAt(bot_index))
-      bot->m_iPowerups = *value;
+  case Type::Ammo:
+    if (fields_ < 2 && ++fields_ == 2) {
+      if (auto *bot = ActiveBotAt(bot_index_))
+        bot->disc_number = value;
+    }
+    return;
+  case Type::Powerup:
+    if (auto *bot = ActiveBotAt(bot_index_))
+      bot->m_iPowerups = value;
+    return;
   }
 }
