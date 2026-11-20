@@ -325,6 +325,64 @@ void BotShootAtEnemy(bot_t *pBot) {
   }
 }
 
+static Vector SelectJumpTarget(bot_t &bot) {
+  const edict_t &edict = *bot.pEdict;
+  Vector target = bot.vecTargetPos;
+
+  // jump to another disc randomly. TODO: make this much more advanced
+  if (target == Vector(0, 0, 0)) {
+    // find a jump arrow randomly.
+    // TODO: let bots go for powerups or find paths on purpose
+    int iCount = 0;
+    Vector vecWPT[8];
+
+    edict_t *p = nullptr;
+    while ((p = UTIL_FindEntityInSphere(p, edict.v.origin, 240.0f)) !=
+           nullptr) {
+      if (strcmp(STRING(p->v.classname), "trigger_jump") == 0) {
+        const Vector v_dest = VecBModelOrigin(p);
+        if (std::fabs(edict.v.absmin.z - p->v.absmax.z) < 32 &&
+            !IsDeadlyDrop(&bot, v_dest)) {
+          vecWPT[iCount++] = v_dest;
+          if (iCount >= 8)
+            break;
+        }
+      }
+    }
+
+    if (iCount > 0)
+      target = vecWPT[RANDOM_LONG(0, iCount - 1)];
+  }
+
+  // try not to knock into other players
+  if (target != Vector(0, 0, 0)) {
+    for (int i = 1; i <= gpGlobals->maxClients; i++) {
+      const edict_t *pPlayer = goldsrc::ClientEdict(i);
+
+      if (!pPlayer)
+        continue;
+
+      if (pPlayer == &edict || pPlayer->v.playerclass != 0 ||
+          pPlayer->v.groupinfo != edict.v.groupinfo ||
+          pPlayer->v.origin.z - edict.v.origin.z > 128 ||
+          pPlayer->v.origin.z - edict.v.origin.z < 0 ||
+          pPlayer->v.flags & (FL_ONGROUND | FL_PARTIALGROUND))
+        continue;
+
+      Vector2D vecPlayer =
+          (pPlayer->v.origin - edict.v.origin).Make2D().Normalize();
+      Vector2D vecTarget = (target - edict.v.origin).Make2D().Normalize();
+
+      if (DotProduct(vecPlayer, vecTarget) > 0.9f) {
+        target = Vector(0, 0, 0);
+        break;
+      }
+    }
+  }
+
+  return target;
+}
+
 void BotThink(bot_t *pBot) {
   // Fix by Cheeseh (RCBot)
   const float now = gpGlobals->time;
@@ -471,57 +529,7 @@ void BotThink(bot_t *pBot) {
   }
 
   if (pEdict->v.flags & (FL_ONGROUND | FL_PARTIALGROUND)) {
-    // jump to another disc randomly. TODO: make this much more advanced
-    if (pBot->vecTargetPos == Vector(0, 0, 0)) {
-      // find a jump arrow randomly.
-      // TODO: let bots go for powerups or find paths on purpose
-      int iCount = 0;
-      Vector vecWPT[8];
-
-      edict_t *p = nullptr;
-      while ((p = UTIL_FindEntityInSphere(p, pBot->pEdict->v.origin, 240.0f)) !=
-             nullptr) {
-        if (strcmp(STRING(p->v.classname), "trigger_jump") == 0) {
-          const Vector v_dest = VecBModelOrigin(p);
-          if (std::fabs(pEdict->v.absmin.z - p->v.absmax.z) < 32 &&
-              !IsDeadlyDrop(pBot, v_dest)) {
-            vecWPT[iCount++] = v_dest;
-            if (iCount >= 8)
-              break;
-          }
-        }
-      }
-
-      if (iCount > 0)
-        pBot->vecTargetPos = vecWPT[RANDOM_LONG(0, iCount - 1)];
-    }
-
-    // try not to knock into other players
-    if (pBot->vecTargetPos != Vector(0, 0, 0)) {
-      for (int i = 1; i <= gpGlobals->maxClients; i++) {
-        const edict_t *pPlayer = goldsrc::ClientEdict(i);
-
-        if (!pPlayer)
-          continue;
-
-        if (pPlayer == pEdict || pPlayer->v.playerclass != 0 ||
-            pPlayer->v.groupinfo != pEdict->v.groupinfo ||
-            pPlayer->v.origin.z - pEdict->v.origin.z > 128 ||
-            pPlayer->v.origin.z - pEdict->v.origin.z < 0 ||
-            pPlayer->v.flags & (FL_ONGROUND | FL_PARTIALGROUND))
-          continue;
-
-        Vector2D vecPlayer =
-            (pPlayer->v.origin - pEdict->v.origin).Make2D().Normalize();
-        Vector2D vecTarget =
-            (pBot->vecTargetPos - pEdict->v.origin).Make2D().Normalize();
-
-        if (DotProduct(vecPlayer, vecTarget) > 0.9f) {
-          pBot->vecTargetPos = Vector(0, 0, 0);
-          break;
-        }
-      }
-    }
+    pBot->vecTargetPos = SelectJumpTarget(*pBot);
 
     // move to the destination position
     if (pBot->vecTargetPos != Vector(0, 0, 0))
