@@ -1,4 +1,4 @@
-Checks: '-*,bugprone-sizeof-expression,bugprone-suspicious-memset-usage,bugprone-use-after-move,clang-analyzer-core.*,clang-analyzer-cplusplus.*'
+Checks: '-*,bugprone-argument-comment,bugprone-unused-raii,bugprone-sizeof-expression,bugprone-suspicious-memset-usage,bugprone-use-after-move,clang-analyzer-core.*,clang-analyzer-cplusplus.*,cert-err34-c,performance-for-range-copy,performance-unnecessary-copy-initialization,modernize-use-nullptr'
 WarningsAsErrors: '*'
 HeaderFilterRegex: '(^|/)(bot|bot_config|bot_func|bot_lifecycle|bot_message|file_handle|goldsrc|jump_target|util)\.hpp$'
 ExcludeHeaderFilterRegex: '(^|/)(hlsdk|metamod)/'

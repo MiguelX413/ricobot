@@ -287,6 +287,12 @@ bool UTIL_BuildFileName(std::span<char> filename, const char *arg1,
 }
 
 void ClampAngle(float &angle) {
+  if (!std::isfinite(angle)) {
+    angle = 0.0f;
+    return;
+  }
+  if (std::fabs(angle) > 360.0f)
+    angle = std::fmod(angle, 360.0f);
   if (angle >= 180.0f)
     angle -= 360.0f * std::round(angle / 360.0f);
   if (angle < -180.0f)

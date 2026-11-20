@@ -44,7 +44,10 @@ globalvars_t *gpGlobals;
 
 void WINAPI GiveFnptrsToDll(enginefuncs_t *pengfuncsFromEngine,
                             globalvars_t *pGlobals) {
-  // get the engine functions from the engine...
-  memcpy(&g_engfuncs, pengfuncsFromEngine, sizeof(enginefuncs_t));
+  if (!pengfuncsFromEngine || !pGlobals)
+    return;
+
+  // This legacy entry point supplies no table size or interface version.
+  g_engfuncs = *pengfuncsFromEngine;
   gpGlobals = pGlobals;
 }

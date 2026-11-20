@@ -43,6 +43,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 
 #include "bot.hpp"
+#include "bot_config.hpp"
 #include "file_handle.hpp"
 #include "goldsrc.hpp"
 
@@ -50,6 +51,13 @@ bot_t bots[BOT_CAPACITY];
 
 static int number_names = 0;
 static std::array<std::string, MAX_BOT_NAMES> bot_names;
+
+static void SanitizeBotName(std::string &name, bool allow_spaces) {
+  std::erase_if(name, [allow_spaces](char character) {
+    return character < ' ' || (!allow_spaces && character == ' ') ||
+           character > '~' || character == '"';
+  });
+}
 
 static void BotNameInit() {
   char bot_name_filename[256];
@@ -63,27 +71,12 @@ static void BotNameInit() {
     char name_buffer[80];
     while (number_names < MAX_BOT_NAMES &&
            fgets(name_buffer, 80, bot_name_fp.get()) != nullptr) {
-      size_t length = strlen(name_buffer);
-
-      if (length > 0 && name_buffer[length - 1] == '\n') {
-        name_buffer[length - 1] = '\0'; // remove '\n'
-        length--;
-      }
-
-      size_t str_index = 0;
-      while (str_index < length) {
-        if (name_buffer[str_index] < ' ' || name_buffer[str_index] > '~' ||
-            name_buffer[str_index] == '"')
-          for (size_t index = str_index; index < length; index++)
-            name_buffer[index] = name_buffer[index + 1];
-
-        str_index++;
-      }
-
-      if (name_buffer[0] != 0) {
-        bot_names[number_names] =
-            std::string_view(name_buffer).substr(0, BOT_NAME_LEN);
-        number_names++;
+      std::string name = name_buffer;
+      SanitizeBotName(name, /*allow_spaces=*/true);
+      if (!name.empty()) {
+        name.resize(
+            std::min(name.size(), static_cast<std::size_t>(BOT_NAME_LEN)));
+        bot_names[number_names++] = std::move(name);
       }
     }
   }
@@ -142,17 +135,11 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
   else
     name = number_names > 0 ? BotPickName() : "Bot";
 
-  int skill = 0;
-
-  if (pskill != nullptr && *pskill != 0)
-    skill = atoi(pskill);
-
+  int skill = bot_config::ParseInt(pskill).value_or(default_bot_skill);
   if (skill < 1 || skill > 5)
     skill = default_bot_skill;
 
-  std::erase_if(name, [](char character) {
-    return character <= ' ' || character > '~' || character == '"';
-  });
+  SanitizeBotName(name, /*allow_spaces=*/false);
 
   int index = 0;
   while (index < std::ssize(bots) &&
@@ -472,6 +459,16 @@ void Think() {
 
   for (auto &bot : bots) {
     if (bot.is_used && bot.respawn_state == RespawnState::Idle) {
+      // Ricochet's Spawn can reset the fake-client flag.
+      if (!bot.pEdict || bot.pEdict->free) {
+        bot.pEdict = nullptr;
+        bot.pBotEnemy = nullptr;
+        bot.killer_edict = nullptr;
+        bot.is_used = false;
+        bot.respawn_state = RespawnState::Unused;
+        bot.kick_time = -1.0f;
+        continue;
+      }
       if (bot_activity == BotActivity::Awake)
         BotThink(&bot);
 

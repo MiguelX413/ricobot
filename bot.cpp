@@ -71,6 +71,8 @@ void BotChangePitch(bot_t *pBot, float speed) {
   float current_180; // current +/- 180 degrees
 
   ClampAngle(pEdict->v.idealpitch);
+  if (!std::isfinite(pEdict->v.v_angle.x))
+    pEdict->v.v_angle.x = 0.0f;
 
   // turn from the current v_angle pitch to the idealpitch by selecting
   // the quickest way to turn to face that direction
@@ -115,6 +117,8 @@ void BotChangeYaw(bot_t *pBot, float speed) {
   float current_180; // current +/- 180 degrees
 
   ClampAngle(pEdict->v.ideal_yaw);
+  if (!std::isfinite(pEdict->v.v_angle.y))
+    pEdict->v.v_angle.y = 0.0f;
 
   // turn from the current v_angle yaw to the ideal_yaw by selecting
   // the quickest way to turn to face that direction
@@ -433,8 +437,10 @@ void BotThink(bot_t *pBot) {
   pBot->f_move_speed = 0.0f;
   pBot->f_sidemove_speed = 0.0f;
 
-  if (FNullEnt(pBot->killer_edict))
+  if (FNullEnt(pBot->killer_edict) || pBot->killer_edict->free) {
+    pBot->killer_edict = nullptr;
     pBot->b_bot_say_killed = false;
+  }
 
   if (pBot->b_bot_say_killed && pBot->f_bot_say_killed < gpGlobals->time) {
     int whine_index = 0;
@@ -496,14 +502,22 @@ void BotThink(bot_t *pBot) {
   if (pBot->need_to_initialize == false)
     pBot->need_to_initialize = true;
 
-  // Get Speed Multiply Factor by dividing Target FPS by real FPS
-  float fSpeedFactor =
-      CVAR_GET_FLOAT("fps_max") / (1.0f / gpGlobals->frametime);
-  if (fSpeedFactor < 1)
-    fSpeedFactor = 1.0f;
+  const float frame_time = gpGlobals->frametime;
+  const float target_fps = CVAR_GET_FLOAT("fps_max");
+  const double speed_factor =
+      std::isfinite(frame_time) && frame_time > 0.0f &&
+              std::isfinite(target_fps) && target_fps > 0.0f
+          ? std::max(1.0, static_cast<double>(frame_time) * target_fps)
+          : 1.0;
+  const auto turn_speed = [speed_factor](float speed) {
+    if (!std::isfinite(speed) || speed <= 0.0f)
+      return 0.0f;
+    return static_cast<float>(
+        std::min(180.0, static_cast<double>(speed) * speed_factor));
+  };
 
-  BotChangeYaw(pBot, pEdict->v.yaw_speed * fSpeedFactor);
-  BotChangePitch(pBot, pEdict->v.pitch_speed * fSpeedFactor);
+  BotChangeYaw(pBot, turn_speed(pEdict->v.yaw_speed));
+  BotChangePitch(pBot, turn_speed(pEdict->v.pitch_speed));
 
   // set the body angles to point the gun correctly
   pEdict->v.angles.x = -pEdict->v.v_angle.x / 3;

@@ -141,11 +141,15 @@ static char plugin_log_tag[] = "RICOBOT";
 
 plugin_info_t Plugin_info = {plugin_interface, plugin_name,   plugin_version,
                              plugin_date,      plugin_author, plugin_url,
-                             plugin_log_tag,   PT_STARTUP,    PT_ANYTIME};
+                             plugin_log_tag,   PT_STARTUP,    PT_NEVER};
 
-// Metamod requesting info about this plugin
+// Metamod negotiates the version advertised in Plugin_info.ifvers.
 C_DLLEXPORT int Meta_Query(char *, plugin_info_t **pPlugInfo,
                            mutil_funcs_t *pMetaUtilFuncs) {
+  if (!pPlugInfo || !pMetaUtilFuncs || !pMetaUtilFuncs->pfnCallGameEntity ||
+      !pMetaUtilFuncs->pfnGetUserMsgID || !pMetaUtilFuncs->pfnLogError)
+    return FALSE;
+
   *pPlugInfo = &Plugin_info;        // Give metamod our plugin_info struct
   gpMetaUtilFuncs = pMetaUtilFuncs; // Get metamod utility function table.
   return TRUE;
@@ -155,19 +159,14 @@ C_DLLEXPORT int Meta_Query(char *, plugin_info_t **pPlugInfo,
 C_DLLEXPORT int Meta_Attach(PLUG_LOADTIME, META_FUNCTIONS *pFunctionTable,
                             meta_globals_t *pMGlobals,
                             gamedll_funcs_t *pGamedllFuncs) {
-  if (!pMGlobals) {
-    LOG_ERROR(PLID, "Meta_Attach called with null pMGlobals");
+  if (!gpGlobals || !gpMetaUtilFuncs || !pMGlobals || !pFunctionTable ||
+      !pGamedllFuncs || !pGamedllFuncs->dllapi_table ||
+      !pGamedllFuncs->dllapi_table->pfnClientConnect ||
+      !pGamedllFuncs->dllapi_table->pfnClientPutInServer)
     return FALSE;
-  }
 
   gpMetaGlobals = pMGlobals;
-
-  if (!pFunctionTable) {
-    LOG_ERROR(PLID, "Meta_Attach called with null pFunctionTable");
-    return FALSE;
-  }
-
-  memcpy(pFunctionTable, &gMetaFunctionTable, sizeof(META_FUNCTIONS));
+  *pFunctionTable = gMetaFunctionTable;
   gpGamedllFuncs = pGamedllFuncs;
 
   GameDLLInit();
@@ -175,8 +174,9 @@ C_DLLEXPORT int Meta_Attach(PLUG_LOADTIME, META_FUNCTIONS *pFunctionTable,
   return TRUE;
 }
 
-// Metamod detaching plugin from the server
-C_DLLEXPORT int Meta_Detach(PLUG_LOADTIME, PL_UNLOAD_REASON) { return TRUE; }
+// The engine registration API has no matching removal operation. Keep the
+// plugin resident across maps and replace it by restarting the server.
+C_DLLEXPORT int Meta_Detach(PLUG_LOADTIME, PL_UNLOAD_REASON) { return FALSE; }
 
 static void AddBotFromCommand(edict_t *requester, const char *name,
                               const char *skill, bool pause_config) {
@@ -194,23 +194,26 @@ static int NormalizeBotLimit(int value) {
 }
 
 void ServerCommand() {
+  if (CMD_ARGC() < 2)
+    return;
+
   if (strcmp(CMD_ARGV(1), "addbot") == 0) {
     AddBotFromCommand(nullptr, CMD_ARGV(2), CMD_ARGV(3),
                       /*pause_config=*/false);
   } else if (strcmp(CMD_ARGV(1), "min_bots") == 0) {
-    min_bots = NormalizeBotLimit(atoi(CMD_ARGV(2)));
+    min_bots = NormalizeBotLimit(bot_config::ParseInt(CMD_ARGV(2)).value_or(0));
 
     printf("min_bots set to %d\n", min_bots);
   } else if (strcmp(CMD_ARGV(1), "max_bots") == 0) {
-    max_bots = NormalizeBotLimit(atoi(CMD_ARGV(2)));
+    max_bots = NormalizeBotLimit(bot_config::ParseInt(CMD_ARGV(2)).value_or(0));
 
     printf("max_bots set to %d\n", max_bots);
   }
 }
 
 int DispatchSpawn(edict_t *pent) {
-  if (gpGlobals->deathmatch) {
-    const char *pClassname = const_cast<char *>(STRING(pent->v.classname));
+  if (gpGlobals->deathmatch && pent && !pent->free) {
+    const char *pClassname = STRING(pent->v.classname);
 
     if (strcmp(pClassname, "worldspawn") == 0) {
       g_GameRules = true;
@@ -228,7 +231,7 @@ int DispatchSpawn(edict_t *pent) {
 
 BOOL ClientConnect(edict_t *pEntity, const char *pszName,
                    const char *pszAddress, char szRejectReason[128]) {
-  if (gpGlobals->deathmatch) {
+  if (gpGlobals->deathmatch && pEntity && pszAddress) {
     // check if this client is the listen server client
     if (strcmp(pszAddress, "loopback") == 0)
       listenserver_edict =
@@ -301,8 +304,8 @@ void ClientCommand(edict_t *pEntity) {
   // only allow custom commands if deathmatch mode and NOT dedicated server and
   // client sending command is the listen server client...
 
-  if ((gpGlobals->deathmatch) && (!IS_DEDICATED_SERVER()) &&
-      (pEntity == listenserver_edict)) {
+  if (gpGlobals->deathmatch && pEntity && !pEntity->free &&
+      !IS_DEDICATED_SERVER() && (pEntity == listenserver_edict)) {
     const char *pcmd = CMD_ARGV(0);
     const char *arg1 = CMD_ARGV(1);
     const char *arg2 = CMD_ARGV(2);
@@ -318,7 +321,7 @@ void ClientCommand(edict_t *pEntity) {
 
     const auto console_value = [arg1]() -> std::optional<int> {
       if (arg1 && *arg1)
-        return atoi(arg1);
+        return bot_config::ParseInt(arg1).value_or(0);
       return std::nullopt;
     };
 
@@ -428,7 +431,8 @@ void StartFrame() {
           welcome_time = gpGlobals->time + 5.0f; // welcome in 5 seconds
       }
 
-      if (welcome_time > 0.0f && welcome_time < gpGlobals->time &&
+      if (listenserver_edict && !listenserver_edict->free &&
+          welcome_time > 0.0f && welcome_time < gpGlobals->time &&
           welcome_sent == false) {
         // send the welcome message to this client
         MESSAGE_BEGIN(MSG_ONE_UNRELIABLE, SVC_TEMPENTITY, nullptr,
@@ -509,7 +513,9 @@ void StartFrame() {
 
 C_DLLEXPORT int GetEntityAPI(DLL_FUNCTIONS *pFunctionTable,
                              int interfaceVersion) {
-  memset(pFunctionTable, 0, sizeof(DLL_FUNCTIONS));
+  if (!pFunctionTable || interfaceVersion != INTERFACE_VERSION)
+    return FALSE;
+  *pFunctionTable = DLL_FUNCTIONS{};
 
   pFunctionTable->pfnSpawn = DispatchSpawn;
   pFunctionTable->pfnClientConnect = ClientConnect;

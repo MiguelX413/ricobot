@@ -43,7 +43,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     )
     target_compile_options(ricobot_mm PRIVATE
         -m32 -msse2 -mfpmath=sse -fno-strict-aliasing
-        -fno-exceptions -fno-rtti -Wno-attributes -Wno-write-strings
+        -fno-exceptions -fno-rtti -Wno-attributes
     )
     set_target_properties(ricobot_mm PROPERTIES
         CXX_VISIBILITY_PRESET hidden

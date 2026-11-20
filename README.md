@@ -32,6 +32,9 @@ put the matching binary under the Ricochet game directory and register its
 relative path in Metamod’s `plugins.ini`, using `linux` or `win32` as
 appropriate. Check `meta list` after starting the server.
 
+Restart the server to update or remove RicoBot NG. It registers an engine
+console command and does not support runtime unload or forced reload.
+
 ## Usage
 
 - On a dedicated server, use `bot addbot [name] [skill]`, `bot min_bots <n>`,

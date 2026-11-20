@@ -97,7 +97,15 @@ void pfnWriteString(const char *) { RETURN_META(MRES_IGNORED); }
 
 C_DLLEXPORT int GetEngineFunctions(enginefuncs_t *pengfuncsFromEngine,
                                    int *interfaceVersion) {
-  memset(pengfuncsFromEngine, 0, sizeof(enginefuncs_t));
+  if (!interfaceVersion)
+    return FALSE;
+  if (*interfaceVersion != ENGINE_INTERFACE_VERSION) {
+    *interfaceVersion = ENGINE_INTERFACE_VERSION;
+    return FALSE;
+  }
+  if (!pengfuncsFromEngine)
+    return FALSE;
+  *pengfuncsFromEngine = enginefuncs_t{};
 
   pengfuncsFromEngine->pfnClientCommand = pfnClientCommand;
   pengfuncsFromEngine->pfnMessageBegin = pfnMessageBegin;
