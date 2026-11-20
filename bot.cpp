@@ -114,7 +114,8 @@ static std::string BotPickName() {
 
   // see if a name exists from a kicked bot (if so, reuse it)
   for (const auto &bot : bots) {
-    if (bot.is_used == false && !bot.name.empty())
+    if (!bot.is_used && bot.respawn_state != RespawnState::Pending &&
+        !bot.name.empty())
       return bot.name;
   }
 
@@ -172,6 +173,18 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
     return character <= ' ' || character > '~' || character == '"';
   });
 
+  int index = 0;
+  while (index < std::ssize(bots) &&
+         (bots[index].is_used ||
+          bots[index].respawn_state == RespawnState::Pending))
+    index++;
+
+  if (index == std::ssize(bots)) {
+    if (pPlayer)
+      ClientPrint(pPlayer, HUD_PRINTNOTIFY, "Can't create bot!\n");
+    return;
+  }
+
   edict_t *BotEnt = (*g_engfuncs.pfnCreateFakeClient)(name.c_str());
 
   if (FNullEnt(BotEnt)) {
@@ -180,15 +193,6 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
                   "Max. Players reached.  Can't create bot!\n");
   } else {
     char ptr[128]; // allocate space for message from ClientConnect
-
-    int index = 0;
-    while (index < std::ssize(bots) && bots[index].is_used)
-      index++;
-
-    if (index == std::ssize(bots)) {
-      ClientPrint(pPlayer, HUD_PRINTNOTIFY, "Can't create bot!\n");
-      return;
-    }
 
     if (BotEnt->pvPrivateData != nullptr)
       FREE_PRIVATE(BotEnt);
@@ -205,18 +209,16 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
     BotEnt->v.flags |= FL_FAKECLIENT;
 
     bot_t *pBot = &bots[index]; // initialize all the variables for this bot...
+    *pBot = bot_t{};
 
     pBot->is_used = true;
     pBot->respawn_state = RespawnState::Idle;
     pBot->create_time = gpGlobals->time;
-    pBot->name.clear(); // name not set by server yet
+    pBot->kick_time = -1.0f;
 
     pBot->pEdict = BotEnt;
-    pBot->killer_edict = nullptr;
 
     BotSpawnInit(pBot);
-
-    pBot->need_to_initialize = false; // don't need to initialize yet
 
     BotEnt->v.idealpitch = BotEnt->v.v_angle.x;
     BotEnt->v.ideal_yaw = BotEnt->v.v_angle.y;

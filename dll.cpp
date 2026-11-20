@@ -290,6 +290,7 @@ void ClientDisconnect(edict_t *pEntity) {
         if (bot.is_used)
           bot.kick_time = gpGlobals->time;
         bot.is_used = false;
+        bot.respawn_state = RespawnState::Unused;
       }
     }
   }
@@ -448,6 +449,8 @@ void StartFrame() {
               kick_time <= previous_time && kick_time + 5.0f > previous_time) {
             bots[index].respawn_state = RespawnState::Pending;
             count++;
+          } else if (!bots[index].is_used) {
+            bots[index].respawn_state = RespawnState::Unused;
           }
           bots[index].kick_time = -1.0f;
         }
@@ -528,8 +531,10 @@ void StartFrame() {
 
         // respawn 1 bot then wait a while (otherwise engine crashes)
         char c_skill[2];
-        sprintf(c_skill, "%d", bots[index].bot_skill);
+        snprintf(c_skill, sizeof(c_skill), "%d", bots[index].bot_skill + 1);
         BotCreate(nullptr, bots[index].name.c_str(), c_skill);
+        if (bots[index].respawn_state == RespawnState::InProgress)
+          bots[index].respawn_state = RespawnState::Unused;
 
         respawn_time = gpGlobals->time + 2.0f; // set next respawn time
 
