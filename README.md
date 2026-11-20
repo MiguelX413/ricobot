@@ -2,7 +2,8 @@
 
 **v0.1.0** is the first RicoBot NG version. RicoBot NG continues Wei Mingzhi’s
 Ricobot, a bot for Half-Life: Ricochet that runs as a 32-bit GoldSrc Metamod
-plugin.
+plugin. Ricobot is based on botman’s HPB Bot Template #3. See the
+[credits](CREDITS.md) for the project’s lineage.
 
 ## Build
 

@@ -8,7 +8,8 @@
 - **botman and the HPB Bot contributors** created the HPB Bot Template.
   Whistler credits Template #3 as Ricobot’s base. The
   [HPB Bot source archive](https://github.com/Bots-United/HPB-bot) documents the
-  project.
+  project. See the [HPB Bot attribution evidence](LICENSING.md#hpb-bot)
+  for the template notice and the remaining provenance question.
 - **Ryan Hunter (APGRoboCop)** maintained this fork before the NG effort. Git
   records SSE2 and performance work (`2b34241`, `057caac`), AMBuild and
   Linux support (`ae9d8a8`, `6807cc4`), angle work (`c73aa76`), and
@@ -41,7 +42,9 @@
 - **Valve** developed Half-Life and GoldSrc and published the
   [Half-Life SDK](https://github.com/ValveSoftware/halflife). Valve and
   **id Software** are credited in the inherited SDK notices for the SDK
-  and underlying licensed technology, respectively.
+  and underlying licensed technology, respectively. The SDK license is included
+  with the [vendored headers](hlsdk/LICENSE), and the
+  [legacy notice](LICENSES/Valve-Legacy-SDK-Notice.txt) is preserved.
 
 See [the licensing audit](LICENSING.md) for the evidence and open questions
 about borrowed code.

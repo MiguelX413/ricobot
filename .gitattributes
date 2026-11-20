@@ -15,3 +15,8 @@
 *.PDF	 diff=astextplain
 *.rtf	 diff=astextplain
 *.RTF	 diff=astextplain
+
+# Keep pinned license texts byte-identical on every checkout.
+LICENSES/*.txt text eol=lf
+hlsdk/LICENSE text eol=lf
+metamod/GPL.txt text eol=lf
