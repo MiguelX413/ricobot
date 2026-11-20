@@ -39,14 +39,17 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstdlib>
 #include <iterator>
 #include <limits>
 #include <optional>
 #include <utility>
+#include <vector>
 
 #include "bot.hpp"
 #include "file_handle.hpp"
+#include "usercmd.h"
 
 char welcome_msg[] = "Welcome to RicoBot NG v" RICOBOT_NG_VERSION "\n"
                      "Based on Ricobot by Wei Mingzhi\n"
@@ -72,6 +75,29 @@ float bot_cfg_pause_time = 0.0f;
 float respawn_time = 0.0f;
 bool spawn_time_reset = false;
 static bool map_started = false;
+using IdleClock = std::chrono::steady_clock;
+static constexpr auto sleep_timeout = std::chrono::minutes{10};
+static IdleClock::time_point last_player_activity;
+// Startup still runs bot.cfg and population setup before the first human joins.
+enum class BotActivity { Startup, Awake, Idle };
+static BotActivity bot_activity = BotActivity::Startup;
+static std::vector<std::optional<std::array<float, 3>>> player_view_angles;
+
+struct SleepingBot {
+  edict_t *disconnecting_client;
+  std::string name;
+  int skill;
+};
+static std::vector<SleepingBot> sleeping_bots;
+static IdleClock::time_point next_sleep_recreation;
+static IdleClock::time_point sleep_kick_deadline;
+
+static bool IsHumanClient(const edict_t *player) {
+  return player && !player->free && (player->v.flags & FL_CLIENT) &&
+         !(player->v.flags & (FL_FAKECLIENT | FL_PROXY));
+}
+
+static void RecordPlayerActivity() { last_player_activity = IdleClock::now(); }
 
 std::array<std::string, MAX_BOT_WHINE> bot_whine;
 int whine_count;
@@ -84,6 +110,10 @@ void ServerCommand();
 
 void GameDLLInit() {
   char filename[256];
+  last_player_activity = IdleClock::now();
+  bot_activity = BotActivity::Startup;
+  player_view_angles.clear();
+  sleeping_bots.clear();
 
   // Register server command
   static char command_name[] = "bot";
@@ -182,6 +212,8 @@ C_DLLEXPORT int Meta_Detach(PLUG_LOADTIME, PL_UNLOAD_REASON) { return TRUE; }
 
 static void AddBotFromCommand(edict_t *requester, const char *name,
                               const char *skill, bool pause_config) {
+  if (bot_activity == BotActivity::Idle)
+    return;
   BotCreate(requester, name, skill);
   // Give the engine time to initialize the bot before processing more config.
   if (pause_config)
@@ -215,6 +247,7 @@ int DispatchSpawn(edict_t *pent) {
     if (strcmp(pClassname, "worldspawn") == 0) {
       g_GameRules = true;
       map_started = true;
+      player_view_angles.clear();
 
       bot_cfg_pause_time = 0.0f;
       respawn_time = 0.0f;
@@ -271,11 +304,39 @@ BOOL ClientConnect(edict_t *pEntity, const char *pszName,
   RETURN_META_VALUE(MRES_IGNORED, 0);
 }
 
+static void ClientPutInServer(edict_t *player) {
+  if (gpGlobals->deathmatch && player && !player->free &&
+      !(player->v.flags & (FL_FAKECLIENT | FL_PROXY))) {
+    RecordPlayerActivity();
+    if (bot_activity != BotActivity::Awake) {
+      bot_activity = BotActivity::Awake;
+      for (auto &bot : bots)
+        bot.fLastRunPlayerMoveTime = gpGlobals->time;
+    }
+  }
+
+  RETURN_META(MRES_IGNORED);
+}
+
 void ClientDisconnect(edict_t *pEntity) {
   if (pEntity) {
+    const int client_index = ENTINDEX(pEntity);
+    if (client_index > 0 &&
+        static_cast<std::size_t>(client_index) < player_view_angles.size())
+      player_view_angles[client_index].reset();
+
     if (listenserver_edict == pEntity) {
       listenserver_edict = nullptr;
       welcome_time = 0.0f;
+    }
+
+    bool sleep_reset = false;
+    for (auto &bot : sleeping_bots) {
+      if (bot.disconnecting_client == pEntity) {
+        bot.disconnecting_client = nullptr;
+        sleep_reset = true;
+        break;
+      }
     }
 
     for (bot_t &bot : bots) {
@@ -288,7 +349,7 @@ void ClientDisconnect(edict_t *pEntity) {
       if (bot.pEdict == pEntity) {
         bot.pEdict = nullptr;
         if (bot.is_used)
-          bot.kick_time = gpGlobals->time;
+          bot.kick_time = sleep_reset ? -1.0f : gpGlobals->time;
         bot.is_used = false;
         bot.respawn_state = RespawnState::Unused;
       }
@@ -322,6 +383,10 @@ static bool SetBotChatPercent(std::optional<int> value) {
 }
 
 void ClientCommand(edict_t *pEntity) {
+  if (gpGlobals->deathmatch && IsHumanClient(pEntity) && CMD_ARGC() > 1 &&
+      (FStrEq(CMD_ARGV(0), "say") || FStrEq(CMD_ARGV(0), "say_team")))
+    RecordPlayerActivity();
+
   // only allow custom commands if deathmatch mode and NOT dedicated server and
   // client sending command is the listen server client...
 
@@ -333,6 +398,8 @@ void ClientCommand(edict_t *pEntity) {
     char msg[80];
 
     if (FStrEq(pcmd, "addbot")) {
+      if (IsHumanClient(pEntity))
+        RecordPlayerActivity();
       AddBotFromCommand(pEntity, arg1, arg2, /*pause_config=*/false);
 
       RETURN_META(MRES_SUPERCEDE);
@@ -394,6 +461,72 @@ static FileHandle OpenMapConfig() {
   return FileHandle{fopen(filename, "r")};
 }
 
+static void CmdStart(const edict_t *player, const usercmd_t *cmd,
+                     unsigned int) {
+  if (gpGlobals->deathmatch && cmd && IsHumanClient(player)) {
+    const int index = g_engfuncs.pfnIndexOfEdict(player);
+    if (index > 0 && index <= gpGlobals->maxClients) {
+      if (player_view_angles.size() <= static_cast<std::size_t>(index))
+        player_view_angles.resize(static_cast<std::size_t>(index) + 1);
+
+      const std::array angles{cmd->viewangles[0], cmd->viewangles[1],
+                              cmd->viewangles[2]};
+      auto &previous = player_view_angles[index];
+      const bool turned = previous && *previous != angles;
+      previous = angles;
+
+      if (turned || cmd->buttons || cmd->impulse || cmd->weaponselect ||
+          cmd->forwardmove || cmd->sidemove || cmd->upmove)
+        RecordPlayerActivity();
+    }
+  }
+  RETURN_META(MRES_IGNORED);
+}
+
+static void BeginBotSleep() {
+  bot_activity = BotActivity::Idle;
+  next_sleep_recreation = IdleClock::now();
+  sleep_kick_deadline = next_sleep_recreation + std::chrono::seconds{5};
+
+  for (const auto &bot : bots) {
+    if (!bot.is_used || !bot.pEdict || bot.pEdict->free)
+      continue;
+
+    const int user_id = GETPLAYERUSERID(bot.pEdict);
+    if (user_id <= 0) {
+      LOG_ERROR(PLID, "Could not reset sleeping bot: missing client user ID");
+      continue;
+    }
+
+    sleeping_bots.push_back(
+        {bot.pEdict, STRING(bot.pEdict->v.netname), bot.bot_skill + 1});
+    char command[32];
+    snprintf(command, sizeof(command), "kick #%d\n", user_id);
+    SERVER_COMMAND(command);
+  }
+}
+
+static void RecreateSleepingBots() {
+  const auto now = IdleClock::now();
+  const auto waiting_for_disconnect = [](const SleepingBot &bot) {
+    return bot.disconnecting_client != nullptr;
+  };
+  if (std::ranges::any_of(sleeping_bots, waiting_for_disconnect)) {
+    if (now < sleep_kick_deadline)
+      return;
+    std::erase_if(sleeping_bots, waiting_for_disconnect);
+    LOG_ERROR(PLID, "Timed out waiting for sleeping bots to disconnect");
+  }
+  if (sleeping_bots.empty() || now < next_sleep_recreation)
+    return;
+
+  auto bot = std::move(sleeping_bots.back());
+  sleeping_bots.pop_back();
+  const std::string skill = std::to_string(bot.skill);
+  BotCreate(nullptr, bot.name.c_str(), skill.c_str());
+  next_sleep_recreation = now + std::chrono::seconds{2};
+}
+
 void StartFrame() {
   if (gpGlobals->deathmatch) {
     static int i, index;
@@ -407,6 +540,7 @@ void StartFrame() {
       bot_cfg_pause_time = 0.0f;
       respawn_time = 0.0f;
       spawn_time_reset = false;
+      sleeping_bots.clear();
       for (auto &bot : bots) {
         bot.pEdict = nullptr;
         bot.pBotEnemy = nullptr;
@@ -466,6 +600,20 @@ void StartFrame() {
     }
     map_started = false;
 
+    if (bot_activity == BotActivity::Awake && sleeping_bots.empty() &&
+        IdleClock::now() - last_player_activity >= sleep_timeout)
+      BeginBotSleep();
+
+    if (!sleeping_bots.empty()) {
+      RecreateSleepingBots();
+      previous_time = gpGlobals->time;
+      RETURN_META(MRES_IGNORED);
+    }
+    if (bot_activity == BotActivity::Idle) {
+      previous_time = gpGlobals->time;
+      RETURN_META(MRES_IGNORED);
+    }
+
     if (!IS_DEDICATED_SERVER()) {
       if (listenserver_edict != nullptr && welcome_sent == false &&
           welcome_time < 1.0f) {
@@ -507,7 +655,8 @@ void StartFrame() {
 
     for (auto &bot : bots) {
       if (bot.is_used && bot.respawn_state == RespawnState::Idle) {
-        BotThink(&bot);
+        if (bot_activity == BotActivity::Awake)
+          BotThink(&bot);
 
         count++;
       }
@@ -613,9 +762,11 @@ C_DLLEXPORT int GetEntityAPI(DLL_FUNCTIONS *pFunctionTable,
 
   pFunctionTable->pfnSpawn = DispatchSpawn;
   pFunctionTable->pfnClientConnect = ClientConnect;
+  pFunctionTable->pfnClientPutInServer = ClientPutInServer;
   pFunctionTable->pfnClientDisconnect = ClientDisconnect;
   pFunctionTable->pfnClientCommand = ClientCommand;
   pFunctionTable->pfnStartFrame = StartFrame;
+  pFunctionTable->pfnCmdStart = CmdStart;
 
   return TRUE;
 }

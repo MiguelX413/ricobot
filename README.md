@@ -45,6 +45,10 @@ appropriate. Check `meta list` after starting the server.
   their existing timing.
 - Bot names and chat can be customized with `bot_names.txt` and
   `bot_whine.txt` in the Ricochet game directory.
+- Bots added at startup stay asleep until a human player joins.
+- After 10 minutes without human player input, RicoBot kicks and recreates
+  its bots on the current map to reset their scores. The replacements stay
+  asleep until a human player joins. Human scores are preserved.
 
 ## Project information
 
