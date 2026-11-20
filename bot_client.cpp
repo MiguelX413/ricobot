@@ -40,6 +40,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iterator>
 
 #include "bot.hpp"
+#include "goldsrc.hpp"
 
 static bot_t *ActiveBotAt(int index) {
   if (index < 0 || index >= std::ssize(bots))
@@ -67,14 +68,9 @@ void BotClient_Ricochet_DeathMsg(const int *value, int) {
   ++fields;
 
   const int victim_index = *value;
-  if (victim_index < 1 || victim_index > gpGlobals->maxClients)
-    return;
-
-  if (auto *victim = UTIL_GetBotPointer(INDEXENT(victim_index))) {
-    victim->killer_edict = killer_index >= 1 &&
-                                   killer_index <= gpGlobals->maxClients &&
-                                   killer_index != victim_index
-                               ? INDEXENT(killer_index)
+  if (auto *victim = UTIL_GetBotPointer(goldsrc::ClientEdict(victim_index))) {
+    victim->killer_edict = killer_index != victim_index
+                               ? goldsrc::ClientEdict(killer_index)
                                : nullptr;
   }
 }

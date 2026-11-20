@@ -50,6 +50,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "bot.hpp"
 #include "file_handle.hpp"
+#include "goldsrc.hpp"
 #include "usercmd.h"
 
 char welcome_msg[] = "Welcome to RicoBot NG v" RICOBOT_NG_VERSION "\n"
@@ -631,7 +632,7 @@ void StartFrame() {
       if (listenserver_edict != nullptr && welcome_sent == false &&
           welcome_time < 1.0f) {
         // are they out of observer mode yet?
-        if (IsAlive(listenserver_edict))
+        if (goldsrc::IsAlive(*listenserver_edict))
           welcome_time = gpGlobals->time + 5.0f; // welcome in 5 seconds
       }
 
@@ -725,7 +726,7 @@ void StartFrame() {
 
       if (!IS_DEDICATED_SERVER() && !spawn_time_reset) {
         if (listenserver_edict != nullptr) {
-          if (IsAlive(listenserver_edict)) {
+          if (goldsrc::IsAlive(*listenserver_edict)) {
             spawn_time_reset = true;
 
             if (respawn_time >= 1.0f)
@@ -751,9 +752,8 @@ void StartFrame() {
       bot_check_time = gpGlobals->time + 5.0f;
 
       for (i = 1; i <= gpGlobals->maxClients; i++) {
-        const edict_t *pPlayer = INDEXENT(i);
-        if (!FNullEnt(pPlayer) && !pPlayer->free &&
-            pPlayer->v.flags & (FL_CLIENT | FL_FAKECLIENT))
+        const edict_t *pPlayer = goldsrc::ClientEdict(i);
+        if (pPlayer && pPlayer->v.flags & (FL_CLIENT | FL_FAKECLIENT))
           count++;
       }
 

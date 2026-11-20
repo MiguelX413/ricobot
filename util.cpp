@@ -24,6 +24,7 @@
 #include <iterator>
 
 #include "bot.hpp"
+#include "goldsrc.hpp"
 
 // Use the C++ runtime's bounded formatter on Windows too.
 #ifdef snprintf
@@ -197,9 +198,18 @@ bot_t *UTIL_GetBotPointer(edict_t *pEdict) {
   return index >= 0 ? &bots[index] : nullptr;
 }
 
-bool IsAlive(edict_t *pEdict) {
-  return (pEdict->v.deadflag == DEAD_NO && pEdict->v.health > 0 &&
-          !(pEdict->v.flags & FL_NOTARGET) && pEdict->v.takedamage != 0.0f);
+edict_t *goldsrc::ClientEdict(int index) {
+  if (index < 1 || index > gpGlobals->maxClients)
+    return nullptr;
+
+  auto *player = INDEXENT(index);
+  return !FNullEnt(player) && !player->free ? player : nullptr;
+}
+
+bool goldsrc::IsAlive(const edict_t &player) {
+  const auto &state = player.v;
+  return !player.free && state.deadflag == DEAD_NO && state.health > 0 &&
+         !(state.flags & FL_NOTARGET) && state.takedamage != 0.0f;
 }
 
 bool FInViewCone(Vector *pOrigin, edict_t *pEdict) {

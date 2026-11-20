@@ -64,7 +64,6 @@ void UTIL_SayText(const char *pText, edict_t *pEdict);
 void UTIL_HostSay(edict_t *pEntity, const char *message);
 int UTIL_GetBotIndex(edict_t *pEdict);
 bot_t *UTIL_GetBotPointer(edict_t *pEdict);
-bool IsAlive(edict_t *pEdict);
 bool FInViewCone(Vector *pOrigin, edict_t *pEdict);
 bool FVisible(const Vector &vecOrigin, edict_t *pEdict);
 Vector Center(edict_t *pEdict);

@@ -44,6 +44,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "bot.hpp"
 #include "file_handle.hpp"
+#include "goldsrc.hpp"
 
 bot_t bots[BOT_CAPACITY];
 bool b_observer_mode = false;
@@ -128,9 +129,9 @@ static std::string BotPickName() {
     used = false;
 
     for (index = 1; index <= gpGlobals->maxClients; index++) {
-      const edict_t *pPlayer = INDEXENT(index);
+      const edict_t *pPlayer = goldsrc::ClientEdict(index);
 
-      if (pPlayer && !pPlayer->free) {
+      if (pPlayer) {
         if (bot_names[name_index] == STRING(pPlayer->v.netname)) {
           used = true;
           break;
@@ -429,7 +430,8 @@ edict_t *BotFindEnemy(bot_t *pBot) {
     vecEnd = pBot->pBotEnemy->v.origin + pBot->pBotEnemy->v.view_ofs;
 
     // if the enemy is dead?
-    if (!IsAlive(pBot->pBotEnemy)) // is the enemy dead?, assume bot killed it
+    if (!goldsrc::IsAlive(
+            *pBot->pBotEnemy)) // is the enemy dead?, assume bot killed it
       pBot->pBotEnemy =
           nullptr; // don't have an enemy anymore so null out the pointer...
     else if (FInViewCone(&vecEnd, pEdict) && FVisible(vecEnd, pEdict) &&
@@ -443,11 +445,11 @@ edict_t *BotFindEnemy(bot_t *pBot) {
 
   // search the world for players...
   for (int i = 1; i <= gpGlobals->maxClients; i++) {
-    edict_t *pPlayer = INDEXENT(i);
+    edict_t *pPlayer = goldsrc::ClientEdict(i);
 
     // skip invalid players and skip self (i.e. this bot)
-    if (pPlayer && !pPlayer->free && pPlayer != pEdict) {
-      if (!IsAlive(pPlayer))
+    if (pPlayer && pPlayer != pEdict) {
+      if (!goldsrc::IsAlive(*pPlayer))
         continue; // skip this player if not alive (i.e. dead or dying)
 
       if (b_observer_mode && !(pPlayer->v.flags & FL_FAKECLIENT))
@@ -679,9 +681,9 @@ void BotThink(bot_t *pBot) {
     // try not to knock into other players
     if (pBot->vecTargetPos != Vector(0, 0, 0)) {
       for (int i = 1; i <= gpGlobals->maxClients; i++) {
-        const edict_t *pPlayer = INDEXENT(i);
+        const edict_t *pPlayer = goldsrc::ClientEdict(i);
 
-        if (FNullEnt(pPlayer))
+        if (!pPlayer)
           continue;
 
         if (pPlayer == pEdict || pPlayer->v.playerclass != 0 ||

@@ -1,4 +1,4 @@
 Checks: '-*,bugprone-sizeof-expression,bugprone-suspicious-memset-usage,bugprone-use-after-move,clang-analyzer-core.*,clang-analyzer-cplusplus.*'
 WarningsAsErrors: '*'
-HeaderFilterRegex: '(^|/)(bot|bot_func|file_handle|util)\.hpp$'
+HeaderFilterRegex: '(^|/)(bot|bot_func|file_handle|goldsrc|util)\.hpp$'
 ExcludeHeaderFilterRegex: '(^|/)(hlsdk|metamod)/'
