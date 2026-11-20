@@ -192,7 +192,7 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
       ClientPrint(pPlayer, HUD_PRINTNOTIFY,
                   "Max. Players reached.  Can't create bot!\n");
   } else {
-    char ptr[128]; // allocate space for message from ClientConnect
+    char reject_reason[128]{};
 
     if (BotEnt->pvPrivateData != nullptr)
       FREE_PRIVATE(BotEnt);
@@ -201,9 +201,26 @@ void BotCreate(edict_t *pPlayer, const char *pname, const char *pskill) {
 
     // create the player entity by calling MOD's player function
     // (from LINK_ENTITY_TO_CLASS for player object)
-    CALL_GAME_ENTITY(PLID, "player", VARS(BotEnt));
+    if (!CALL_GAME_ENTITY(PLID, "player", VARS(BotEnt)) ||
+        !MDLL_ClientConnect(BotEnt, name.c_str(), "127.0.0.1", reject_reason)) {
+      reject_reason[sizeof(reject_reason) - 1] = '\0';
+      LOG_ERROR(PLID, "Could not connect fake client: %s",
+                reject_reason[0] ? reject_reason
+                                 : "game DLL initialization failed");
 
-    MDLL_ClientConnect(BotEnt, name.c_str(), "127.0.0.1", ptr);
+      // Drop the engine client slot through the server, using its unique ID.
+      const int user_id = GETPLAYERUSERID(BotEnt);
+      if (user_id > 0) {
+        char command[32];
+        snprintf(command, sizeof(command), "kick #%d\n", user_id);
+        SERVER_COMMAND(command);
+      } else {
+        LOG_ERROR(PLID, "Could not get the rejected fake client's user ID");
+      }
+      if (pPlayer)
+        ClientPrint(pPlayer, HUD_PRINTNOTIFY, "Can't create bot!\n");
+      return;
+    }
     MDLL_ClientPutInServer(BotEnt);
 
     BotEnt->v.flags |= FL_FAKECLIENT;
